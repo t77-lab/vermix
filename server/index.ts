@@ -11,7 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
-const geminiKey = process.env.GEMINI_API_KEY;
+const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
 const ai = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : null;
 
 app.post('/api/ai/chat', async (req, res) => {
@@ -22,15 +22,20 @@ app.post('/api/ai/chat', async (req, res) => {
     }
     if (!ai) {
       return res.status(503).json({
-        reply: 'Serverda GEMINI_API_KEY topilmadi. Railway Variables bo‘limini tekshiring.',
+        error: 'Serverda GEMINI_API_KEY topilmadi. Railway Variables bo‘limini tekshiring.',
       });
     }
 
+    // Gemini API talabi: contents ro'yxati albatta 'user' rolidan boshlanishi shart
+    const mapped = history.slice(-8).map((m: { role: string; content: string }) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+    const firstUserIdx = mapped.findIndex((m: { role: string }) => m.role === 'user');
+    const validHistory = firstUserIdx >= 0 ? mapped.slice(firstUserIdx) : [];
+
     const contents = [
-      ...history.slice(-8).map((m: { role: string; content: string }) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      })),
+      ...validHistory,
       { role: 'user', parts: [{ text: message }] },
     ];
 
