@@ -14,6 +14,14 @@ app.use(express.json({ limit: '5mb' }));
 const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
 const ai = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : null;
 
+const CANDIDATE_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+];
+
 app.post('/api/ai/chat', async (req, res) => {
   try {
     const { message, history = [] } = req.body;
@@ -26,7 +34,6 @@ app.post('/api/ai/chat', async (req, res) => {
       });
     }
 
-    // Gemini API talabi: contents ro'yxati albatta 'user' rolidan boshlanishi shart
     const mapped = history.slice(-8).map((m: { role: string; content: string }) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
@@ -39,16 +46,25 @@ app.post('/api/ai/chat', async (req, res) => {
       { role: 'user', parts: [{ text: message }] },
     ];
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents,
-      config: {
-        systemInstruction:
-          'Sen VerMix platformasining aqlli AI yordamchisisan. Foydalanuvchiga o‘zbek tilida aniq, tushunarli va foydali javob ber.',
-      },
-    });
+    let lastError: any = null;
+    for (const modelName of CANDIDATE_MODELS) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: {
+            systemInstruction:
+              'Sen VerMix platformasining aqlli AI yordamchisisan. Foydalanuvchiga o‘zbek tilida aniq, tushunarli va foydali javob ber.',
+          },
+        });
+        return res.json({ reply: response.text || 'Javob olinmadi.', model: modelName });
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${modelName} ishlamadi (${err?.status || err?.message}), keyingisi sinab ko‘rilmoqda...`);
+      }
+    }
 
-    res.json({ reply: response.text || 'Javob olinmadi.' });
+    throw lastError || new Error('Hech bir Gemini modeli javob bermadi');
   } catch (err: any) {
     console.error('Gemini API xatosi:', err);
     res.status(500).json({ error: err?.message || 'AI server xatosi' });
