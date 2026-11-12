@@ -14,13 +14,23 @@ app.use(express.json({ limit: '5mb' }));
 const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
 const ai = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : null;
 
-const CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
-];
+async function getWorkingModel(): Promise<string> {
+  if (!ai) throw new Error('GEMINI_API_KEY topilmadi');
+  const pager = await ai.models.list();
+  const available: string[] = [];
+  for await (const m of pager) {
+    const name = (m.name || '').replace(/^models\//, '');
+    if (name.includes('gemini') && !name.includes('embedding') && !name.includes('imagen')) {
+      available.push(name);
+    }
+  }
+  console.log('Kalit uchun mavjud Gemini modellar:', available);
+  const preferred = available.find((n) => n.includes('flash')) || available[0];
+  if (!preferred) {
+    throw new Error('Bu API kalitda birorta ham Gemini modeli topilmadi (aistudio.google.com dan yangi kalit oling)');
+  }
+  return preferred;
+}
 
 app.post('/api/ai/chat', async (req, res) => {
   try {
@@ -46,25 +56,17 @@ app.post('/api/ai/chat', async (req, res) => {
       { role: 'user', parts: [{ text: message }] },
     ];
 
-    let lastError: any = null;
-    for (const modelName of CANDIDATE_MODELS) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents,
-          config: {
-            systemInstruction:
-              'Sen VerMix platformasining aqlli AI yordamchisisan. Foydalanuvchiga o‘zbek tilida aniq, tushunarli va foydali javob ber.',
-          },
-        });
-        return res.json({ reply: response.text || 'Javob olinmadi.', model: modelName });
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`Model ${modelName} ishlamadi (${err?.status || err?.message}), keyingisi sinab ko‘rilmoqda...`);
-      }
-    }
+    const modelName = await getWorkingModel();
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents,
+      config: {
+        systemInstruction:
+          'Sen VerMix platformasining aqlli AI yordamchisisan. Foydalanuvchiga o‘zbek tilida aniq, tushunarli va foydali javob ber.',
+      },
+    });
 
-    throw lastError || new Error('Hech bir Gemini modeli javob bermadi');
+    res.json({ reply: response.text || 'Javob olinmadi.', model: modelName });
   } catch (err: any) {
     console.error('Gemini API xatosi:', err);
     res.status(500).json({ error: err?.message || 'AI server xatosi' });
