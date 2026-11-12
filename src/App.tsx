@@ -1,140 +1,37 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Home,
-  Compass,
-  Music,
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  VolumeX,
-  Laptop,
-  Smartphone,
-  Bot,
-  Calendar,
-  Phone,
-  BookOpen,
-  Newspaper,
-  Wrench,
-  Sparkles,
-  Bookmark,
-  User,
-  Settings,
-  Search,
-  Sun,
-  Moon,
-  Plus,
-  Trash2,
-  Edit2,
-  Copy,
-  Check,
-  ExternalLink,
-  Heart,
-  Share2,
-  Upload,
-  Send,
-  MessageCircle,
-  LogIn,
-  LogOut,
-  Shield,
-  Clock,
-  CloudSun,
-  ArrowRight,
-  X,
-  Menu,
-  Filter,
-  SlidersHorizontal,
-  CheckCircle2,
-  AlertCircle,
-  Globe,
-  Calculator,
-  QrCode,
-  KeyRound,
-  FileText,
-  Timer,
-  Watch
-} from "lucide-react";
+  Home, Image as ImageIcon, Music, Video, Laptop, Smartphone, Bot, Calendar as CalendarIcon,
+  PhoneCall, BookOpen, Newspaper, Wrench, Sparkles, Bookmark, User, Settings, Search,
+  Sun, Moon, Menu, X, Plus, Heart, Share2, ExternalLink, Copy, Check, Play, Pause,
+  SkipBack, SkipForward, Volume2, VolumeX, Upload, Send, Trash2, Edit3, Clock,
+  CloudSun, Compass, ShieldCheck, Globe, Calculator, QrCode, KeyRound, FileText,
+  ChevronRight, Star, SlidersHorizontal, ArrowLeftRight, AlertCircle, CheckCircle2,
+  LogOut, LogIn, MessageCircle, Server, Eye, EyeOff, RefreshCw, Timer, Watch
+} from 'lucide-react';
+import { supabase } from './supabaseClient';
 
-// ============================================================================
-// SAFE LOCAL STORAGE HELPERS
-// ============================================================================
-function readStorage<T>(key: string, fallback: T): T {
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return parsed !== null && parsed !== undefined ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
+// --- TYPES ---
+type SectionId =
+  | 'home' | 'pinterest' | 'music' | 'videos' | 'computers' | 'smartphones'
+  | 'ai-assistant' | 'calendar' | 'operators' | 'directory' | 'news'
+  | 'tools' | 'ai-tools' | 'bookmarks' | 'profile' | 'settings' | 'contact';
+
+interface UserProfile {
+  id?: string;
+  name: string;
+  email: string;
+  phone: string;
+  avatar: string;
+  provider?: 'google' | 'phone' | 'demo';
 }
 
-function writeStorage<T>(key: string, value: T): void {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Ignore storage quota or sandbox restrictions
-  }
-}
-
-// ============================================================================
-// VERIFIED SVG FALLBACK IMAGES FOR DEVICES
-// ============================================================================
-const LAPTOP_FALLBACK_SVG =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" fill="none">
-      <rect width="640" height="400" rx="24" fill="#F1F5F9"/>
-      <rect x="130" y="72" width="380" height="228" rx="16" fill="#0F172A" stroke="#334155" stroke-width="6"/>
-      <rect x="148" y="90" width="344" height="192" rx="8" fill="#1E293B"/>
-      <circle cx="320" cy="186" r="34" fill="#3B82F6" fill-opacity="0.22"/>
-      <path d="M92 308H548L526 326H114L92 308Z" fill="#94A3B8"/>
-    </svg>`
-  );
-
-const PHONE_FALLBACK_SVG =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
-      <rect width="400" height="400" rx="24" fill="#F1F5F9"/>
-      <rect x="128" y="42" width="144" height="316" rx="28" fill="#0F172A" stroke="#334155" stroke-width="6"/>
-      <rect x="138" y="54" width="124" height="292" rx="20" fill="#1E293B"/>
-      <rect x="176" y="64" width="48" height="10" rx="5" fill="#0F172A"/>
-      <circle cx="200" cy="200" r="28" fill="#10B981" fill-opacity="0.25"/>
-    </svg>`
-  );
-
-// ============================================================================
-// STRICT ASCII TYPES & INTERFACES
-// ============================================================================
-type SectionKey =
-  | "home"
-  | "pinterest"
-  | "music"
-  | "videos"
-  | "computers"
-  | "smartphones"
-  | "ai"
-  | "calendar"
-  | "operators"
-  | "directory"
-  | "news"
-  | "tools"
-  | "aitools"
-  | "bookmarks"
-  | "profile"
-  | "contact"
-  | "settings";
-
-interface PinCard {
+interface PinItem {
   id: string;
   title: string;
   category: string;
+  image: string;
   author: string;
   likes: number;
-  imageUrl: string;
-  heightClass: string;
   board: string;
 }
 
@@ -144,47 +41,44 @@ interface TrackItem {
   artist: string;
   album: string;
   category: string;
-  durationSec: number;
-  coverUrl: string;
-  audioUrl?: string;
-  baseFreq: number;
+  cover: string;
+  audioUrl: string;
+  duration: string;
   isCustom?: boolean;
 }
 
-interface SocialVideoItem {
+interface VideoItem {
   id: string;
-  platform: "YouTube" | "Instagram" | "TikTok";
-  title: string;
-  author: string;
+  platform: 'YouTube' | 'Instagram' | 'TikTok';
   originalUrl: string;
   embedUrl: string;
+  title: string;
   addedAt: string;
 }
 
-interface LaptopSpec {
+interface ComputerItem {
   id: string;
   brand: string;
   model: string;
   year: number;
-  imageUrl: string;
-  cpu: string;
+  processor: string;
   ram: string;
   storage: string;
   gpu: string;
   display: string;
   battery: string;
-  priceRange: string;
+  price: string;
+  image: string;
   description: string;
   pros: string[];
   cons: string[];
 }
 
-interface PhoneSpec {
+interface PhoneItem {
   id: string;
   brand: string;
   model: string;
   releaseDate: string;
-  imageUrl: string;
   display: string;
   processor: string;
   ramStorage: string;
@@ -194,68 +88,64 @@ interface PhoneSpec {
   charging: string;
   os: string;
   price: string;
+  image: string;
 }
 
-interface AiMessage {
+interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
-  text: string;
-  time: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  attachmentName?: string;
 }
 
-interface AiThread {
-  id: string;
-  title: string;
-  messages: AiMessage[];
-}
-
-interface CalendarItem {
+interface CalendarEvent {
   id: string;
   title: string;
   date: string;
   time: string;
-  category: "Tadbir" | "Eslatma" | "Vazifa" | "Muhim sana";
   color: string;
   notes: string;
+  completed?: boolean;
 }
 
 interface OperatorInfo {
   id: string;
   name: string;
-  badgeColor: string;
-  supportPhone: string;
-  shortNumbers: string[];
-  balanceUssd: string;
-  internetUssd: string;
-  ussdList: { code: string; title: string }[];
-  tariffs: { name: string; price: string; info: string }[];
-  packages: { name: string; size: string; ussd: string }[];
+  color: string;
+  support: string;
+  shortNumbers: { code: string; desc: string }[];
+  ussdCodes: { code: string; desc: string }[];
+  balanceCode: string;
+  tariffs: { name: string; price: string; details: string }[];
+  packages: { name: string; price: string; validity: string }[];
+  services: string[];
   website: string;
 }
 
-interface OrgDirectoryItem {
+interface DirectoryEntry {
   id: string;
-  name: string;
   category: string;
+  name: string;
   phone: string;
   description: string;
-  website: string;
-  address: string;
-  hours: string;
+  website?: string;
+  address?: string;
+  hours?: string;
 }
 
 interface NewsItem {
   id: string;
-  title: string;
   category: string;
+  title: string;
   summary: string;
   date: string;
   source: string;
   url: string;
-  imageUrl: string;
+  image: string;
 }
 
-interface AiToolEntry {
+interface AiToolItem {
   id: string;
   name: string;
   category: string;
@@ -264,3840 +154,2179 @@ interface AiToolEntry {
   url: string;
 }
 
-interface SavedBookmark {
+interface BookmarkItem {
   id: string;
-  type: "Rasm" | "Video" | "Musiqa" | "Kompyuter" | "Smartfon" | "Yangilik" | "Telefon";
+  type: 'Rasm' | 'Musiqa' | 'Video' | 'Qurilma' | 'Maqola' | 'Raqam';
   title: string;
   subtitle: string;
-  section: SectionKey;
+  section: SectionId;
 }
 
-interface UserAuth {
-  isAuthenticated: boolean;
-  provider: "google" | "phone" | "guest";
-  name: string;
-  identifier: string;
-  avatarLetter: string;
+// --- VERIFIED & CURATED DATA ---
+const INITIAL_PINS: PinItem[] = [
+  { id: 'p1', title: 'Minimalist Ish Stoli Setup 2026', category: 'Texnologiya', image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&w=800&q=80', author: 'StudioNord', likes: 342, board: 'Ish joyi' },
+  { id: 'p2', title: 'Samarqand Registon Tungi Manzarasi', category: 'Sayohat', image: 'https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?auto=format&fit=crop&w=800&q=80', author: 'UzTravel', likes: 890, board: 'O‘zbekiston' },
+  { id: 'p3', title: 'Zamonaviy UI/UX Dizayn Tizimi', category: 'Dizayn', image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=800&q=80', author: 'LinearCraft', likes: 512, board: 'Dizayn' },
+  { id: 'p4', title: 'Skandinaviya Arxitekturasi', category: 'Arxitektura', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', author: 'ArchDaily', likes: 418, board: 'Interyer' },
+  { id: 'p5', title: 'Kiberxavfsizlik va Server Xonasi', category: 'Texnologiya', image: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=800&q=80', author: 'NetCore', likes: 276, board: 'Texnologiya' },
+  { id: 'p6', title: 'Minimalist Qahva va Tonggi Reja', category: 'Hayot tarzi', image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80', author: 'MorningBrew', likes: 625, board: 'Hayot tarzi' },
+  { id: 'p7', title: 'Kosmik Tumanlik va Yulduzlar', category: 'Koinot', image: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=800&q=80', author: 'AstroHub', likes: 940, board: 'Koinot' },
+  { id: 'p8', title: 'Mexanik Klaviatura Custom Keycaps', category: 'Texnologiya', image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=800&q=80', author: 'KeyForge', likes: 489, board: 'Ish joyi' },
+];
+
+const INITIAL_TRACKS: TrackItem[] = [
+  {
+    id: 't1',
+    title: 'Toshkent Oqshomi (Ambient)',
+    artist: 'VerMix Studio',
+    album: 'Digital Horizons',
+    category: 'Fokus',
+    cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    duration: '06:12',
+  },
+  {
+    id: 't2',
+    title: 'Kodlash Ritmi (Lo-Fi Beats)',
+    artist: 'SynthWave UZ',
+    album: 'Deep Work Vol. 1',
+    category: 'Lo-Fi',
+    cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    duration: '07:05',
+  },
+  {
+    id: 't3',
+    title: 'Ipak Yo‘li Sadosi',
+    artist: 'Samarkand Acoustic',
+    album: 'Sharq Melodiyalari',
+    category: 'Milliy & Chill',
+    cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    duration: '05:44',
+  },
+  {
+    id: 't4',
+    title: 'Kechki Trassa (Electronic)',
+    artist: 'Nova Pulse',
+    album: 'Midnight Drive',
+    category: 'Elektron',
+    cover: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+    duration: '05:02',
+  },
+];
+
+const COMPUTERS_DB: ComputerItem[] = [
+  {
+    id: 'c1', brand: 'Apple', model: 'MacBook Pro 14 (M4 Pro)', year: 2024,
+    processor: 'Apple M4 Pro (12-core CPU)', ram: '24 GB Unified', storage: '512 GB SSD',
+    gpu: '16-core Apple GPU', display: '14.2" Liquid Retina XDR, 120Hz', battery: '72.4 Wh (22 soatgacha)',
+    price: '$1,999', image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',
+    description: 'Professional dasturlash, 3D grafika va video montaj uchun yuqori unumdorlikka ega ixcham flagman noutbuk.',
+    pros: ['Ajoyib avtonomlik', 'Yorqin mini-LED ekran', 'Shovqinsiz ishlash'], cons: ['Yuqori narx', 'Xotirani keyin kengaytirib bo‘lmaydi']
+  },
+  {
+    id: 'c2', brand: 'ASUS', model: 'ROG Zephyrus G16 (2024)', year: 2024,
+    processor: 'Intel Core Ultra 9 185H', ram: '32 GB LPDDR5X', storage: '1 TB PCIe 4.0 SSD',
+    gpu: 'NVIDIA GeForce RTX 4070 8GB', display: '16" 2.5K OLED, 240Hz', battery: '90 Wh (10 soatgacha)',
+    price: '$1,899', image: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=800&q=80',
+    description: 'Yupqa alyuminiy korpusda o‘yinlar va og‘ir grafik ishlar uchun mo‘ljallangan OLED ekranli noutbuk.',
+    pros: ['240Hz OLED displey', 'Yengil (1.85 kg) o‘yin noutbuki', 'Kuchli dinamiklar'], cons: ['Yuklama ostida qiziydi', 'RAM lehimlangan']
+  },
+  {
+    id: 'c3', brand: 'Lenovo', model: 'ThinkPad X1 Carbon Gen 12', year: 2024,
+    processor: 'Intel Core Ultra 7 155H', ram: '32 GB LPDDR5X', storage: '1 TB NVMe SSD',
+    gpu: 'Intel Arc Graphics', display: '14" 2.8K OLED, 120Hz', battery: '57 Wh (14 soatgacha)',
+    price: '$1,749', image: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=800&q=80',
+    description: 'Biznes va korporativ foydalanuvchilar uchun afsonaviy klaviatura va mustahkam karbon korpusli ultrabuk.',
+    pros: ['Atigi 1.09 kg vazn', 'Eng qulay klaviatura', 'MIL-STD-810H chidamlilik'], cons: ['O‘yinlar uchun emas', 'Narxi qimmatroq']
+  },
+  {
+    id: 'c4', brand: 'HP', model: 'Spectre x360 14 (2024)', year: 2024,
+    processor: 'Intel Core Ultra 7 155H', ram: '16 GB LPDDR5X', storage: '1 TB SSD',
+    gpu: 'Intel Arc Graphics', display: '14" 2.8K OLED Touch, 120Hz', battery: '68 Wh (13 soatgacha)',
+    price: '$1,499', image: 'https://images.unsplash.com/photo-1544731612-de7f96afe55f?auto=format&fit=crop&w=800&q=80',
+    description: '360 daraja bukiluvchi sensor ekran va stilus qo‘llab-quvvatlovchi premium transformer noutbuk.',
+    pros: ['9MP sifatli veb-kamera', 'Ajoyib dizayn va OLED ekran', 'Stilus to‘plamda'], cons: ['Portlar soni kam (3 ta)']
+  },
+  {
+    id: 'c5', brand: 'Dell', model: 'XPS 14 (9440)', year: 2024,
+    processor: 'Intel Core Ultra 7 155H', ram: '32 GB LPDDR5X', storage: '1 TB SSD',
+    gpu: 'NVIDIA RTX 4050 6GB', display: '14.5" 3.2K OLED Touch', battery: '69.5 Wh (12 soatgacha)',
+    price: '$1,849', image: 'https://images.unsplash.com/photo-1593642702821-c8da6771f0c6?auto=format&fit=crop&w=800&q=80',
+    description: 'Cheksiz ramkali InfinityEdge displey va CNC alyuminiy korpusga ega zamonaviy ultrabuk.',
+    pros: ['Premium yig‘ilish sifati', 'Diskret RTX 4050 video karta', 'Ixcham o‘lcham'], cons: ['Sensorli F-tugmalar qatori']
+  },
+  {
+    id: 'c6', brand: 'Acer', model: 'Swift Go 14 OLED', year: 2024,
+    processor: 'Intel Core Ultra 7 155H', ram: '16 GB LPDDR5X', storage: '512 GB SSD',
+    gpu: 'Intel Arc Graphics', display: '14" 2.8K OLED, 90Hz', battery: '65 Wh (11 soatgacha)',
+    price: '$899', image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80',
+    description: 'Hamyonbop narxda yorqin OLED ekran va yangi avlod protsessorini taklif etuvchi kundalik noutbuk.',
+    pros: ['Narx/sifat nisbati zo‘r', 'Ko‘p portlar (HDMI, USB-A, USB-C)', 'Yengil'], cons: ['Dinamiklar ovozi o‘rtacha']
+  },
+  {
+    id: 'c7', brand: 'MSI', model: 'Raider GE78 HX 14V', year: 2024,
+    processor: 'Intel Core i9-14900HX (24-core)', ram: '32 GB DDR5', storage: '2 TB NVMe SSD',
+    gpu: 'NVIDIA GeForce RTX 4080 12GB', display: '17" QHD+ IPS, 240Hz', battery: '99.9 Wh (6 soatgacha)',
+    price: '$2,699', image: 'https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?auto=format&fit=crop&w=800&q=80',
+    description: 'Maksimal FPS va og‘ir muhandislik hisob-kitoblari uchun yaratilgan ekstremal o‘yin stansiyasi.',
+    pros: ['Desktop darajasidagi quvvat', 'Kuchli sovutish tizimi', 'RGB Matrix chiroqlar'], cons: ['Og‘ir (3.1 kg)', 'Katta quvvat bloki']
+  },
+  {
+    id: 'c8', brand: 'Microsoft', model: 'Surface Laptop 7 (13.8")', year: 2024,
+    processor: 'Snapdragon X Elite (12-core)', ram: '16 GB LPDDR5X', storage: '512 GB SSD',
+    gpu: 'Qualcomm Adreno GPU', display: '13.8" PixelSense Flow, 120Hz', battery: '54 Wh (20 soatgacha)',
+    price: '$1,199', image: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=800&q=80',
+    description: 'Copilot+ AI imkoniyatlari va rekord darajadagi batareya ishlash vaqtiga ega Windows ultrabuki.',
+    pros: ['20 soatgacha batareya', 'Haptic touchpad', 'Yorqin 120Hz sensor ekran'], cons: ['Ba’zi eski x86 dasturlar emulyatsiyada ishlaydi']
+  },
+  {
+    id: 'c9', brand: 'Samsung', model: 'Galaxy Book4 Pro 14', year: 2024,
+    processor: 'Intel Core Ultra 7 155H', ram: '16 GB LPDDR5X', storage: '512 GB SSD',
+    gpu: 'Intel Arc Graphics', display: '14" Dynamic AMOLED 2X, 120Hz', battery: '63 Wh (14 soatgacha)',
+    price: '$1,349', image: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=800&q=80',
+    description: 'Samsung ekotizimi bilan chuqur integratsiyalashgan, aks ettirishga qarshi AMOLED ekranli noutbuk.',
+    pros: ['Anti-reflective AMOLED ekran', 'Atigi 1.23 kg', 'Galaxy telefonlar bilan tezkor aloqa'], cons: ['Klaviatura bosilishi sayozroq']
+  },
+  {
+    id: 'c10', brand: 'Razer', model: 'Blade 16 (2024)', year: 2024,
+    processor: 'Intel Core i9-14900HX', ram: '32 GB DDR5', storage: '1 TB SSD',
+    gpu: 'NVIDIA GeForce RTX 4080 12GB', display: '16" QHD+ OLED, 240Hz', battery: '95.2 Wh (7 soatgacha)',
+    price: '$2,999', image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80',
+    description: 'Qora anodlangan yaxlit alyuminiy korpusli eng nufuzli o‘yin va ijodkorlar noutbuki.',
+    pros: ['240Hz OLED panel', 'MacBook kabi mustahkam korpus', 'Yuqori grafik quvvat'], cons: ['Juda qimmat']
+  },
+  {
+    id: 'c11', brand: 'Huawei', model: 'MateBook X Pro (2024)', year: 2024,
+    processor: 'Intel Core Ultra 9 185H', ram: '32 GB LPDDR5X', storage: '1 TB SSD',
+    gpu: 'Intel Arc Graphics', display: '14.2" Flexible OLED, 120Hz', battery: '70 Wh (11 soatgacha)',
+    price: '$1,599', image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80',
+    description: 'Atigi 980 gramm og‘irlikdagi magniy qotishmali korpusda Core Ultra 9 protsessorini jamlagan ultrabuk.',
+    pros: ['980 gramm ultra-yengil vazn', '3.1K OLED ekran', 'Tezkor 90W quvvatlash'], cons: ['Faqat USB-C portlar']
+  }
+];
+
+const PHONES_DB: PhoneItem[] = [
+  {
+    id: 's1', brand: 'Apple', model: 'iPhone 16 Pro Max', releaseDate: '2024-yil sentyabr',
+    display: '6.9" LTPO Super Retina XDR OLED, 120Hz', processor: 'Apple A18 Pro (3 nm)',
+    ramStorage: '8 GB RAM / 256 GB - 1 TB', mainCamera: '48 MP asosiy + 48 MP ultra-keng + 12 MP 5x periskop',
+    frontCamera: '12 MP TrueDepth (4K 60fps)', battery: '4685 mAh', charging: '25W MagSafe / 30W simli',
+    os: 'iOS 18', price: '$1,199', image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's2', brand: 'Samsung', model: 'Galaxy S24 Ultra', releaseDate: '2024-yil yanvar',
+    display: '6.8" Dynamic LTPO AMOLED 2X, 120Hz, 2600 nit', processor: 'Snapdragon 8 Gen 3 for Galaxy',
+    ramStorage: '12 GB RAM / 256 GB - 1 TB', mainCamera: '200 MP asosiy + 50 MP 5x + 10 MP 3x + 12 MP ultra-keng',
+    frontCamera: '12 MP Dual Pixel', battery: '5000 mAh', charging: '45W simli / 15W simsiz',
+    os: 'Android 14 (One UI 6.1)', price: '$1,299', image: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's3', brand: 'Xiaomi', model: 'Xiaomi 14 Ultra', releaseDate: '2024-yil fevral',
+    display: '6.73" LTPO AMOLED, 120Hz, 3000 nit', processor: 'Snapdragon 8 Gen 3 (4 nm)',
+    ramStorage: '16 GB RAM / 512 GB - 1 TB', mainCamera: '50 MP 1-dyuymli Leica Summilux (4 ta 50 MP modul)',
+    frontCamera: '32 MP (4K 60fps)', battery: '5000 mAh', charging: '90W simli / 80W simsiz',
+    os: 'Android 14 (HyperOS)', price: '$1,099', image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's4', brand: 'Redmi', model: 'Redmi Note 13 Pro+ 5G', releaseDate: '2024-yil yanvar',
+    display: '6.67" AMOLED, 120Hz, 1800 nit', processor: 'MediaTek Dimensity 7200 Ultra',
+    ramStorage: '8/12 GB RAM / 256/512 GB', mainCamera: '200 MP OIS + 8 MP + 2 MP',
+    frontCamera: '16 MP', battery: '5000 mAh', charging: '120W HyperCharge (19 daqiqada 100%)',
+    os: 'Android 14 (HyperOS)', price: '$379', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's5', brand: 'POCO', model: 'POCO F6 Pro', releaseDate: '2024-yil may',
+    display: '6.67" WQHD+ Flow AMOLED, 120Hz', processor: 'Snapdragon 8 Gen 2 (4 nm)',
+    ramStorage: '12/16 GB RAM / 256 GB - 1 TB', mainCamera: '50 MP Light Fusion 800 OIS + 8 MP + 2 MP',
+    frontCamera: '16 MP', battery: '5000 mAh', charging: '120W HyperCharge',
+    os: 'Android 14 (HyperOS)', price: '$499', image: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's6', brand: 'Google', model: 'Pixel 9 Pro XL', releaseDate: '2024-yil avgust',
+    display: '6.8" Super Actua LTPO OLED, 120Hz', processor: 'Google Tensor G4 (4 nm)',
+    ramStorage: '16 GB RAM / 128 GB - 1 TB', mainCamera: '50 MP asosiy + 48 MP 5x periskop + 48 MP ultra-keng',
+    frontCamera: '42 MP Autofocus', battery: '5060 mAh', charging: '37W simli / 23W simsiz',
+    os: 'Android 14 (7 yil yangilanish)', price: '$1,099', image: 'https://images.unsplash.com/photo-1598327105854-c8674faddf79?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's7', brand: 'Huawei', model: 'Pura 70 Ultra', releaseDate: '2024-yil aprel',
+    display: '6.8" LTPO OLED, 120Hz, Kunlun Glass', processor: 'Kirin 9010 (7 nm)',
+    ramStorage: '16 GB RAM / 512 GB - 1 TB', mainCamera: '50 MP harakatlanuvchi 1-dyuymli linza + 50 MP makro telefoto + 40 MP',
+    frontCamera: '13 MP Autofocus', battery: '5200 mAh', charging: '100W simli / 80W simsiz',
+    os: 'EMUI 14.2 / HarmonyOS 4.2', price: '$1,249', image: 'https://images.unsplash.com/photo-1605236453806-6ff36851218e?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's8', brand: 'Honor', model: 'Honor Magic6 Pro', releaseDate: '2024-yil fevral',
+    display: '6.8" LTPO OLED, 120Hz, 5000 nit HDR', processor: 'Snapdragon 8 Gen 3 (4 nm)',
+    ramStorage: '12/16 GB RAM / 512 GB - 1 TB', mainCamera: '50 MP o‘zgaruvchan diafragma + 180 MP periskop + 50 MP',
+    frontCamera: '50 MP + 3D ToF Face ID', battery: '5600 mAh Silicon-Carbon', charging: '80W simli / 66W simsiz',
+    os: 'Android 14 (MagicOS 8.0)', price: '$999', image: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's9', brand: 'OnePlus', model: 'OnePlus 12', releaseDate: '2024-yil yanvar',
+    display: '6.82" LTPO AMOLED, 120Hz, 4500 nit', processor: 'Snapdragon 8 Gen 3 (4 nm)',
+    ramStorage: '12/16 GB RAM / 256/512 GB', mainCamera: '50 MP Sony LYT-808 Hasselblad + 64 MP 3x + 48 MP',
+    frontCamera: '32 MP', battery: '5400 mAh', charging: '100W SUPERVOOC / 50W AIRVOOC',
+    os: 'Android 14 (OxygenOS 14)', price: '$799', image: 'https://images.unsplash.com/photo-1567581935884-3349723552ca?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's10', brand: 'OPPO', model: 'Find X7 Ultra', releaseDate: '2024-yil yanvar',
+    display: '6.82" LTPO AMOLED, 120Hz', processor: 'Snapdragon 8 Gen 3 (4 nm)',
+    ramStorage: '12/16 GB RAM / 256/512 GB', mainCamera: '50 MP 1-dyuymli + ikkita periskop (3x va 6x) + 50 MP',
+    frontCamera: '32 MP', battery: '5000 mAh', charging: '100W simli / 50W simsiz',
+    os: 'Android 14 (ColorOS 14)', price: '$949', image: 'https://images.unsplash.com/photo-1533228100845-08145b01de14?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's11', brand: 'Vivo', model: 'Vivo X100 Pro', releaseDate: '2024-yil yanvar',
+    display: '6.78" LTPO AMOLED, 120Hz', processor: 'MediaTek Dimensity 9300 (4 nm)',
+    ramStorage: '16 GB RAM / 512 GB - 1 TB', mainCamera: '50 MP 1-dyuymli ZEISS + 50 MP APO 4.3x periskop + 50 MP',
+    frontCamera: '32 MP', battery: '5400 mAh', charging: '100W simli / 50W simsiz',
+    os: 'Android 14 (Funtouch OS 14)', price: '$899', image: 'https://images.unsplash.com/photo-1574944985070-8f3ebc6b79d2?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's12', brand: 'Realme', model: 'Realme GT 6', releaseDate: '2024-yil iyun',
+    display: '6.78" LTPO AMOLED, 120Hz, 6000 nit', processor: 'Snapdragon 8s Gen 3 (4 nm)',
+    ramStorage: '12/16 GB RAM / 256/512 GB', mainCamera: '50 MP Sony LYT-808 OIS + 50 MP telefoto + 8 MP',
+    frontCamera: '32 MP', battery: '5500 mAh', charging: '120W SUPERVOOC',
+    os: 'Android 14 (Realme UI 5.0)', price: '$599', image: 'https://images.unsplash.com/photo-1585060544812-6b45742d762f?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 's13', brand: 'Nothing', model: 'Nothing Phone (2a)', releaseDate: '2024-yil mart',
+    display: '6.7" Flexible AMOLED, 120Hz', processor: 'MediaTek Dimensity 7200 Pro',
+    ramStorage: '8/12 GB RAM / 128/256 GB', mainCamera: '50 MP OIS + 50 MP ultra-keng',
+    frontCamera: '32 MP', battery: '5000 mAh', charging: '45W simli',
+    os: 'Android 14 (Nothing OS 2.5)', price: '$349', image: 'https://images.unsplash.com/photo-1616348436168-de43ad0db179?auto=format&fit=crop&w=800&q=80'
+  }
+];
+
+const UZ_OPERATORS: OperatorInfo[] = [
+  {
+    id: 'beeline', name: 'Beeline Uzbekistan', color: 'bg-amber-400 text-black',
+    support: '0611 (Beeline raqamidan) / +998 90 185-00-55',
+    shortNumbers: [
+      { code: '0611', desc: 'Mijozlarni qo‘llab-quvvatlash markazi' },
+      { code: '0674', desc: 'Xizmatlarni boshqarish markazi' },
+    ],
+    ussdCodes: [
+      { code: '*102#', desc: 'Asosiy balans va daqiqalarni tekshirish' },
+      { code: '*103#', desc: 'Internet-trafik qoldig‘ini tekshirish' },
+      { code: '*110*05#', desc: 'Joriy tarif rejasini bilish' },
+      { code: '*148#', desc: 'O‘z raqamini aniqlash' },
+      { code: '*110*09#', desc: 'Yoqilgan pullik xizmatlarni ko‘rish' },
+    ],
+    balanceCode: '*102# / *103#',
+    tariffs: [
+      { name: 'Yana Bitta', price: '45 000 so‘m/oy', details: '15 GB internet, cheksiz qo‘ng‘iroqlar, 1000 SMS' },
+      { name: 'Hammasi ZO‘R 3', price: '65 000 so‘m/oy', details: '30 GB internet, tungi cheksiz trafik, Beeline TV' },
+    ],
+    packages: [
+      { name: 'Internet-paket 5 GB', price: '25 000 so‘m', validity: '30 kun (*1*05#)' },
+      { name: 'Internet-paket 20 GB', price: '55 000 so‘m', validity: '30 kun (*1*20#)' },
+    ],
+    services: ['Beeline TV', 'Beeline Music', 'Beepul to‘lov tizimi', 'eSIM xizmati'],
+    website: 'https://beeline.uz'
+  },
+  {
+    id: 'ucell', name: 'Ucell', color: 'bg-purple-600 text-white',
+    support: '8123 (Ucell raqamidan) / +998 93 180-00-00',
+    shortNumbers: [
+      { code: '8123', desc: 'Call-markaz (24/7)' },
+      { code: '9999', desc: 'Axborot xizmati' },
+    ],
+    ussdCodes: [
+      { code: '*100#', desc: 'Balansni tekshirish' },
+      { code: '*107#', desc: 'Internet va daqiqa qoldiqlarini ko‘rish' },
+      { code: '*450#', desc: 'O‘z telefon raqamini bilish' },
+      { code: '*120#', desc: 'Tarif rejasini tekshirish' },
+      { code: '*401#', desc: 'Faol xizmatlar ro‘yxati' },
+    ],
+    balanceCode: '*100# / *107#',
+    tariffs: [
+      { name: 'Katta Doimiy 40', price: '40 000 so‘m/oy', details: '12 GB internet, tarmoq ichida cheksiz, 1500 daqiqa' },
+      { name: 'Katta Doimiy 70', price: '70 000 so‘m/oy', details: '35 GB internet, barcha yo‘nalishlarga cheksiz qo‘ng‘iroq' },
+    ],
+    packages: [
+      { name: 'Oylik 6 GB', price: '28 000 so‘m', validity: '30 kun (*555*3*2#)' },
+      { name: 'Oylik 18 GB', price: '55 000 so‘m', validity: '30 kun (*555*3*4#)' },
+    ],
+    services: ['Ucell mobil ilovasi', 'eSIM', 'U-To‘lov', 'Xalqaro rouming'],
+    website: 'https://ucell.uz'
+  },
+  {
+    id: 'uzmobile', name: 'Uztelecom (Uzmobile)', color: 'bg-sky-600 text-white',
+    support: '1099 (Uzmobile raqamidan) / +998 71 200-09-09',
+    shortNumbers: [
+      { code: '1099', desc: 'Mobil aloqa qo‘llab-quvvatlash markazi' },
+      { code: '1084', desc: 'Uy interneti (Uzonline) texnik yordam' },
+    ],
+    ussdCodes: [
+      { code: '*100#', desc: 'Hisob (balans) va limitlarni tekshirish' },
+      { code: '*107#', desc: 'Bonus va internet-paket qoldig‘i' },
+      { code: '*100*4#', desc: 'O‘z raqamini aniqlash' },
+      { code: '*111#', desc: 'Umumiy USSD menyu' },
+    ],
+    balanceCode: '*100# / *107#',
+    tariffs: [
+      { name: 'Milliy 40', price: '40 000 so‘m/oy', details: '12 GB internet, O‘zbekiston bo‘ylab cheksiz qo‘ng‘iroq' },
+      { name: 'Milliy 70', price: '70 000 so‘m/oy', details: '35 GB internet, cheksiz qo‘ng‘iroqlar, 3000 SMS' },
+    ],
+    packages: [
+      { name: 'Internet 5 GB', price: '22 000 so‘m', validity: '30 kun (*147*10072#)' },
+      { name: 'Internet 20 GB', price: '50 000 so‘m', validity: '30 kun (*147*10075#)' },
+    ],
+    services: ['MyUZTELECOM', 'TelecomTV', 'eSIM', 'Bulutli xizmatlar'],
+    website: 'https://uztelecom.uz'
+  },
+  {
+    id: 'mobiuz', name: 'Mobiuz', color: 'bg-red-600 text-white',
+    support: '0890 (Mobiuz raqamidan) / +998 97 130-09-09',
+    shortNumbers: [
+      { code: '0890', desc: 'Mijozlarga xizmat ko‘rsatish markazi' },
+      { code: '0990', desc: 'Tezkor ma’lumot xizmati' },
+    ],
+    ussdCodes: [
+      { code: '*100#', desc: 'Balansni tekshirish' },
+      { code: '*102#', desc: 'Internet-paket qoldig‘ini tekshirish' },
+      { code: '*150#', desc: 'O‘z telefon raqamini bilish' },
+      { code: '*111#', desc: 'Mobiuz USSD boshqaruv menyusi' },
+    ],
+    balanceCode: '*100# / *102#',
+    tariffs: [
+      { name: 'Xotirjam 40', price: '40 000 so‘m/oy', details: '15 GB internet, O‘zbekiston bo‘ylab cheksiz qo‘ng‘iroq' },
+      { name: 'Xotirjam 60', price: '60 000 so‘m/oy', details: '30 GB internet, messenjerlar uchun qo‘shimcha trafik' },
+    ],
+    packages: [
+      { name: 'OnNet 5 GB', price: '25 000 so‘m', validity: '30 kun (*171*019*3#)' },
+      { name: 'OnNet 20 GB', price: '55 000 so‘m', validity: '30 kun (*171*019*6#)' },
+    ],
+    services: ['Mobiuz ilovasi', 'Chiroyli raqamlar', 'eSIM', 'MobiMusic'],
+    website: 'https://mobi.uz'
+  },
+  {
+    id: 'humans', name: 'Humans', color: 'bg-yellow-300 text-black',
+    support: '1234 (Humans raqamidan) / +998 71 207-77-77',
+    shortNumbers: [
+      { code: '1234', desc: 'Humans qo‘llab-quvvatlash xizmati' },
+    ],
+    ussdCodes: [
+      { code: '*100#', desc: 'Balans va paketlar holati' },
+      { code: '*111#', desc: 'O‘z raqamini aniqlash' },
+    ],
+    balanceCode: '*100# yoki Humans ilovasi',
+    tariffs: [
+      { name: 'Konstruktor Tarif', price: '25 000 so‘mdan', details: 'Daqiqa va gigabaytlarni ilovada o‘zingiz tanlaysiz' },
+    ],
+    packages: [
+      { name: 'Cheksiz Telegram/Instagram', price: '15 000 so‘m', validity: '30 kun (ilovada)' },
+    ],
+    services: ['Humans Visa bank kartasi', 'Keshbek tizimi', 'eSIM', 'HUMANS.uz ilovasi'],
+    website: 'https://humans.uz'
+  }
+];
+
+const UZ_DIRECTORY: DirectoryEntry[] = [
+  { id: 'd1', category: 'Favqulodda xizmatlar', name: 'O‘t o‘chirish va FVV qutqaruv xizmati', phone: '101', description: 'Yong‘in va favqulodda vaziyatlarda tezkor yordam (24/7)', hours: '24/7' },
+  { id: 'd2', category: 'Favqulodda xizmatlar', name: 'Ichki ishlar organlari (Militsiya / 102)', phone: '102', description: 'Huquq-tartibot va tezkor xavfsizlik xizmati', hours: '24/7' },
+  { id: 'd3', category: 'Favqulodda xizmatlar', name: 'Tez tibbiy yordam', phone: '103', description: 'Shoshilinch tibbiy yordam chaqirish raqami', hours: '24/7' },
+  { id: 'd4', category: 'Gaz xizmati', name: 'Hududgazta’minot avariya xizmati', phone: '104', description: 'Gaz sizib chiqishi va avariya holatlari uchun tezkor raqam', website: 'https://hududgaz.uz', hours: '24/7' },
+  { id: 'd5', category: 'Elektr xizmati', name: 'Hududiy elektr tarmoqlari (HET)', phone: '1154', description: 'Elektr energiyasi uzilishlari va hisoblagichlar bo‘yicha call-markaz', website: 'https://het.uz', hours: '24/7' },
+  { id: 'd6', category: 'Suv xizmati', name: 'O‘zsuvta’minot yagona call-markazi', phone: '1255', description: 'Ichimlik suvi va kanalizatsiya tarmoqlari bo‘yicha murojaatlar', website: 'https://uzsuv.uz', hours: '24/7' },
+  { id: 'd7', category: 'Banklar', name: 'O‘zbekiston Respublikasi Markaziy banki', phone: '+998 71 200-00-44', description: 'Ishonch telefoni va bank xizmatlari bo‘yicha murojaatlar', website: 'https://cbu.uz', address: 'Toshkent sh., Islom Karimov ko‘chasi, 6', hours: '09:00 - 18:00' },
+  { id: 'd8', category: 'Banklar', name: 'Milliy bank (NBU)', phone: '+998 78 148-00-10', description: 'Jismoniy va yuridik shaxslar uchun call-markaz', website: 'https://nbu.uz', hours: '24/7' },
+  { id: 'd9', category: 'Banklar', name: 'Kapitalbank', phone: '1340', description: 'Kartalar, ilova va bank xizmatlari qo‘llab-quvvatlash markazi', website: 'https://kapitalbank.uz', hours: '24/7' },
+  { id: 'd10', category: 'Davlat tashkilotlari', name: 'Yagona interaktiv davlat xizmatlari (My.gov.uz)', phone: '1148', description: 'Elektron davlat xizmatlari bo‘yicha yagona yordam markazi', website: 'https://my.gov.uz', hours: '24/7' },
+  { id: 'd11', category: 'Davlat tashkilotlari', name: 'Soliq qo‘mitasi call-markazi', phone: '1198', description: 'Soliq to‘lovchilar uchun maslahat va texnik yordam', website: 'https://soliq.uz', hours: '09:00 - 18:00' },
+  { id: 'd12', category: 'Internet provayderlar', name: 'Uzonline (Uztelecom)', phone: '1084', description: 'Uy va ofis optik internet xizmatlari texnik yordami', website: 'https://uztelecom.uz', hours: '24/7' },
+  { id: 'd13', category: 'Internet provayderlar', name: 'Sarkor Telecom', phone: '+998 78 120-00-00', description: 'Yuqori tezlikdagi internet va TV xizmatlari', website: 'https://sarkor.uz', hours: '24/7' },
+  { id: 'd14', category: 'Aviakompaniyalar', name: 'Uzbekistan Airways', phone: '+998 78 140-02-00', description: 'Aviachiptalar, reyslar jadvali va qo‘llab-quvvatlash', website: 'https://uzairways.com', hours: '24/7' },
+  { id: 'd15', category: 'Transport', name: 'O‘zbekiston temir yo‘llari', phone: '1005', description: 'Poyezd chiptalari va vokzal ma’lumotxonasi', website: 'https://railway.uz', hours: '24/7' },
+  { id: 'd16', category: 'Universitetlar', name: 'TATU (Toshkent axborot texnologiyalari universiteti)', phone: '+998 71 238-64-15', description: 'Qabul komissiyasi va ma’muriyat', website: 'https://tuit.uz', address: 'Toshkent sh., Amir Temur shoh ko‘chasi, 108', hours: '09:00 - 17:00' },
+  { id: 'd17', category: 'Yetkazib berish', name: 'O‘zbekiston pochtasi (UzPost)', phone: '+998 71 233-57-47', description: 'Pochta jo‘natmalari va kuryerlik xizmati', website: 'https://uz.post', hours: '09:00 - 18:00' },
+];
+
+const NEWS_ITEMS: NewsItem[] = [
+  { id: 'n1', category: 'AI yangiliklari', title: 'Google Gemini 2.5 modellarining yangi avlod imkoniyatlari taqdim etildi', summary: 'Yangi multimodal tahlil va kod yozish tezligi dasturchilar uchun katta qulaylik yaratmoqda.', date: '2026-11-12', source: 'Google AI Blog', url: 'https://blog.google/technology/ai/', image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=80' },
+  { id: 'n2', category: 'O‘zbekiston', title: 'IT Park Uzbekistan eksport hajmi yangi rekord darajaga yetdi', summary: 'Mahalliy dasturiy mahsulotlar va autsorsing xizmatlari 60 dan ortiq davlatga eksport qilinmoqda.', date: '2026-11-11', source: 'IT Park UZ', url: 'https://it-park.uz', image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80' },
+  { id: 'n3', category: 'Smartfonlar', title: 'Flagman smartfonlarda kremniy-uglerod (Silicon-Carbon) batareyalar davri', summary: 'Yupqa korpusda 6000 mAh sig‘imli batareyalar endi yangi standartga aylanmoqda.', date: '2026-11-10', source: 'GSMArena', url: 'https://www.gsmarena.com', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80' },
+  { id: 'n4', category: 'Kompyuterlar', title: 'ARM arxitekturasidagi noutbuklar bozor ulushini tez sur’atda oshirmoqda', summary: 'Apple Silicon va Snapdragon X seriyalari avtonomlik bo‘yicha yangi mezon o‘rnatdi.', date: '2026-11-09', source: 'The Verge', url: 'https://www.theverge.com', image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80' },
+  { id: 'n5', category: 'Koinot', title: 'James Webb teleskopi uzoq ekzosayyora atmosferasida yangi molekulalarni aniqladi', summary: 'Astronomlar yerdan 120 yorug‘lik yili uzoqlikdagi sayyora tarkibini o‘rganmoqda.', date: '2026-11-08', source: 'NASA Science', url: 'https://science.nasa.gov', image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80' },
+  { id: 'n6', category: 'Texnologiya', title: 'WebAssembly va Edge Computing zamonaviy veb-ilovalarni tezlashtirmoqda', summary: 'Brauzer ichida og‘ir hisob-kitoblarni bajarish yanada soddalashdi.', date: '2026-11-07', source: 'TechCrunch', url: 'https://techcrunch.com', image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80' },
+];
+
+const AI_TOOLS_DIR: AiToolItem[] = [
+  { id: 'at1', name: 'ChatGPT (OpenAI)', category: 'Matn va Muloqot', description: 'Savol-javob, matn yozish, tahlil va dasturlash uchun universal AI.', pricing: 'Freemium', url: 'https://chatgpt.com' },
+  { id: 'at2', name: 'Google Gemini', category: 'Matn va Muloqot', description: 'Multimodal AI yordamchi — matn, kod, rasm va hujjatlar bilan ishlaydi.', pricing: 'Freemium', url: 'https://gemini.google.com' },
+  { id: 'at3', name: 'Claude (Anthropic)', category: 'Dasturlash', description: 'Katta hajmli kod bazalari va murakkab tahlillar uchun kuchli model.', pricing: 'Freemium', url: 'https://claude.ai' },
+  { id: 'at4', name: 'Midjourney', category: 'Rasm yaratish', description: 'Matn tavsifi asosida yuqori badiiy sifatdagi tasvirlar generatsiyasi.', pricing: 'Pullik', url: 'https://www.midjourney.com' },
+  { id: 'at5', name: 'Perplexity AI', category: 'Qidiruv va Tadqiqot', description: 'Manbalarga asoslangan real vaqtdagi aqlli qidiruv tizimi.', pricing: 'Freemium', url: 'https://www.perplexity.ai' },
+  { id: 'at6', name: 'Cursor AI', category: 'Dasturlash', description: 'AI o‘rnatilgan zamonaviy kod muharriri (IDE).', pricing: 'Freemium', url: 'https://www.cursor.com' },
+  { id: 'at7', name: 'ElevenLabs', category: 'Audio va Ovoz', description: 'Tabiiy ovoz sintezi va matnni ovozga o‘girish platformasi.', pricing: 'Freemium', url: 'https://elevenlabs.io' },
+  { id: 'at8', name: 'Notion AI', category: 'Samaradorlik', description: 'Eslatmalar, hujjatlar va loyiha rejalarini avtomatlashtirish.', pricing: 'Pullik', url: 'https://www.notion.so' },
+];
+
+// --- HELPER: VIDEO URL PARSER ---
+function parseVideoEmbed(url: string): { platform: 'YouTube' | 'Instagram' | 'TikTok'; embedUrl: string } | null {
+  const trimmed = url.trim();
+  const ytMatch = trimmed.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    return { platform: 'YouTube', embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}` };
+  }
+  const igMatch = trimmed.match(/instagram\.com\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/);
+  if (igMatch) {
+    return { platform: 'Instagram', embedUrl: `https://www.instagram.com/p/${igMatch[1]}/embed` };
+  }
+  const ttMatch = trimmed.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/);
+  if (ttMatch) {
+    return { platform: 'TikTok', embedUrl: `https://www.tiktok.com/embed/v2/${ttMatch[1]}` };
+  }
+  return null;
 }
 
-// ============================================================================
-// NAVIGATION CONFIGURATION (ALL 17 SECTIONS IN UZBEK)
-// ============================================================================
-const SIDEBAR_MENU: {
-  id: SectionKey;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  { id: "home", label: "Bosh sahifa", icon: Home },
-  { id: "pinterest", label: "Pinterest", icon: Compass },
-  { id: "music", label: "Musiqa", icon: Music },
-  { id: "videos", label: "Videolar", icon: Play },
-  { id: "computers", label: "Kompyuterlar", icon: Laptop },
-  { id: "smartphones", label: "Smartfonlar", icon: Smartphone },
-  { id: "ai", label: "AI Yordamchi", icon: Bot },
-  { id: "calendar", label: "Kalendar", icon: Calendar },
-  { id: "operators", label: "Mobil Operatorlar", icon: Phone },
-  { id: "directory", label: "Telefon Ma'lumotnomasi", icon: BookOpen },
-  { id: "news", label: "Yangiliklar", icon: Newspaper },
-  { id: "tools", label: "Foydali Vositalar", icon: Wrench },
-  { id: "aitools", label: "AI Vositalar", icon: Sparkles },
-  { id: "bookmarks", label: "Saqlanganlar", icon: Bookmark },
-  { id: "profile", label: "Profil", icon: User },
-  { id: "contact", label: "Aloqa", icon: MessageCircle },
-  { id: "settings", label: "Sozlamalar", icon: Settings }
-];
-
-// ============================================================================
-// CURATED DATA (VERIFIED SPECS, CONTACTS & REAL DEVICE PHOTOS)
-// ============================================================================
-const INITIAL_PINS: PinCard[] = [
-  {
-    id: "pin-1",
-    title: "Minimalist oq ish stoli va MacBook Pro setup",
-    category: "Texnologiya",
-    author: "VerMix Studio",
-    likes: 412,
-    imageUrl: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80",
-    heightClass: "h-64",
-    board: "Ish stoli g'oyalari"
-  },
-  {
-    id: "pin-2",
-    title: "Samarqand Registon ansambli me'moriy go'zalligi",
-    category: "Sayohat",
-    author: "Samarkand Travel",
-    likes: 928,
-    imageUrl: "https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?auto=format&fit=crop&w=800&q=80",
-    heightClass: "h-80",
-    board: "O'zbekiston sayohati"
-  },
-  {
-    id: "pin-3",
-    title: "Zamonaviy UI/UX mobil ilova dizayn tizimi",
-    category: "Dizayn",
-    author: "Madina UI",
-    likes: 340,
-    imageUrl: "https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=800&q=80",
-    heightClass: "h-56",
-    board: "Dizayn ilhomlari"
-  },
-  {
-    id: "pin-4",
-    title: "Skandinaviya uslubidagi yorug' va sokin interyer",
-    category: "Interyer",
-    author: "Nordic Space",
-    likes: 519,
-    imageUrl: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80",
-    heightClass: "h-72",
-    board: "Interyer"
-  },
-  {
-    id: "pin-5",
-    title: "Sun'iy intellekt va kelajak texnologiyalari",
-    category: "Sun'iy Intellekt",
-    author: "AI Lab",
-    likes: 645,
-    imageUrl: "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=80",
-    heightClass: "h-64",
-    board: "Texnologiya"
-  },
-  {
-    id: "pin-6",
-    title: "Tonggi kofe va mutolaa estetikasi",
-    category: "Hayot tarzi",
-    author: "Dilnoza Art",
-    likes: 284,
-    imageUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80",
-    heightClass: "h-60",
-    board: "Hayot tarzi"
-  }
-];
-
-const DEFAULT_TRACKS: TrackItem[] = [
-  {
-    id: "trk-1",
-    title: "Samarqand Tongi (Ambient Piano)",
-    artist: "VerMix Studio",
-    album: "Ipak Yo'li Ohanglari",
-    category: "Fokus va Ish",
-    durationSec: 185,
-    coverUrl: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=400&q=80",
-    baseFreq: 261.63
-  },
-  {
-    id: "trk-2",
-    title: "Toshkent Kechalari (Lo-Fi Chill)",
-    artist: "Nuriddin Beats",
-    album: "Shahar Ritmi",
-    category: "Lo-Fi",
-    durationSec: 164,
-    coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80",
-    baseFreq: 293.66
-  },
-  {
-    id: "trk-3",
-    title: "Registon Yulduzlari",
-    artist: "Sharq Simfonik",
-    album: "Sharq Nafasi",
-    category: "Milliy va Klassik",
-    durationSec: 215,
-    coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
-    baseFreq: 329.63
-  },
-  {
-    id: "trk-4",
-    title: "Deep Focus Flow",
-    artist: "VerMix AI Audio",
-    album: "Produktivlik",
-    category: "Fokus va Ish",
-    durationSec: 210,
-    coverUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=400&q=80",
-    baseFreq: 220.0
-  }
-];
-
-const INITIAL_VIDEOS: SocialVideoItem[] = [
-  {
-    id: "vid-1",
-    platform: "YouTube",
-    title: "O'zbekistonning tarixiy shaharlari bo'ylab sayohat (4K)",
-    author: "YouTube Rasmiy Pleyer",
-    originalUrl: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
-    embedUrl: "https://www.youtube.com/embed/aqz-KE-bpKQ",
-    addedAt: "Bugun"
-  },
-  {
-    id: "vid-2",
-    platform: "YouTube",
-    title: "Zamonaviy texnologiyalar va sun'iy intellekt sharhi",
-    author: "Tech Overview",
-    originalUrl: "https://www.youtube.com/watch?v=LXb3EKWsInQ",
-    embedUrl: "https://www.youtube.com/embed/LXb3EKWsInQ",
-    addedAt: "Kecha"
-  }
-];
-
-const COMPUTERS_CATALOG: LaptopSpec[] = [
-  {
-    id: "lap-apple-m4",
-    brand: "Apple",
-    model: "MacBook Pro 14 (M4 Pro)",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80",
-    cpu: "Apple M4 Pro (12-yadro CPU)",
-    ram: "24 GB Unified Memory",
-    storage: "512 GB NVMe SSD",
-    gpu: "16-yadro Apple GPU",
-    display: "14.2 dyuym Liquid Retina XDR, 120Hz",
-    battery: "72.4 Vt·soat (18 soatgacha)",
-    priceRange: "$1,999 – $2,299",
-    description: "Dasturchilar, dizaynerlar va video montaj ustalari uchun yuqori unumdor va uzoq ishlovchi noutbuk.",
-    pros: ["18 soatgacha batareya", "Yorqin Mini-LED ekran", "Shovqinsiz ishlash"],
-    cons: ["Narxi yuqori", "Xotirani kengaytirib bo'lmaydi"]
-  },
-  {
-    id: "lap-asus-rog",
-    brand: "ASUS",
-    model: "ROG Zephyrus G16 (2024)",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core Ultra 9 185H",
-    ram: "32 GB LPDDR5X",
-    storage: "1 TB PCIe 4.0 SSD",
-    gpu: "NVIDIA GeForce RTX 4070 8GB",
-    display: "16 dyuym ROG Nebula OLED 2.5K 240Hz",
-    battery: "90 Vt·soat",
-    priceRange: "$1,899 – $2,199",
-    description: "Yupqa alyuminiy korpusda kuchli o'yin va 3D grafika imkoniyatlarini birlashtirgan flagman noutbuk.",
-    pros: ["240Hz OLED displey", "Yengil (1.85 kg)", "Kuchli RTX 4070 grafikasi"],
-    cons: ["Yuklamada qizishi mumkin", "RAM qo'shib bo'lmaydi"]
-  },
-  {
-    id: "lap-lenovo-x1",
-    brand: "Lenovo",
-    model: "ThinkPad X1 Carbon Gen 12",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core Ultra 7 155H",
-    ram: "32 GB LPDDR5x",
-    storage: "1 TB SSD",
-    gpu: "Intel Arc Graphics",
-    display: "14 dyuym 2.8K OLED 120Hz",
-    battery: "57 Vt·soat",
-    priceRange: "$1,750 – $2,050",
-    description: "Biznes va korporativ foydalanuvchilar uchun 1.09 kg vaznli afsonaviy ultrabuk.",
-    pros: ["1.09 kg o'ta yengil", "Qulay klaviatura", "Yuqori chidamlilik"],
-    cons: ["O'yinlar uchun emas", "Baland narx"]
-  },
-  {
-    id: "lap-hp-spectre",
-    brand: "HP",
-    model: "Spectre x360 14 (2024)",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1544731612-de7f96afe55f?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core Ultra 7 155H",
-    ram: "16 GB LPDDR5x",
-    storage: "1 TB NVMe SSD",
-    gpu: "Intel Arc Graphics",
-    display: "14 dyuym 2.8K OLED Touch 120Hz",
-    battery: "68 Vt·soat",
-    priceRange: "$1,499 – $1,699",
-    description: "360 daraja bukiladigan sensor ekranli, stilus qo'llab-quvvatlaydigan transformer noutbuk.",
-    pros: ["2-in-1 planshet rejimi", "9 MP sifatli kamera", "Nafis dizayn"],
-    cons: ["Portlar soni kam", "Yaltiroq ekran"]
-  },
-  {
-    id: "lap-dell-xps",
-    brand: "Dell",
-    model: "XPS 14 (9440)",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core Ultra 7 155H",
-    ram: "32 GB LPDDR5x",
-    storage: "1 TB SSD",
-    gpu: "NVIDIA GeForce RTX 4050 6GB",
-    display: "14.5 dyuym 3.2K OLED Touch",
-    battery: "69.5 Vt·soat",
-    priceRange: "$1,799 – $2,099",
-    description: "CNC alyuminiy va Gorilla Glass 3 shishasidan tayyorlangan minimalist ultrabuk.",
-    pros: ["Premium korpus", "3.2K OLED ekran", "Diskret RTX 4050 GPU"],
-    cons: ["Sensorli funksional tugmalar", "Og'irroq (1.74 kg)"]
-  },
-  {
-    id: "lap-acer-swift",
-    brand: "Acer",
-    model: "Swift Go 14 AI",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core Ultra 7 155H",
-    ram: "16 GB LPDDR5X",
-    storage: "512 GB SSD",
-    gpu: "Intel Arc Graphics",
-    display: "14 dyuym 2.8K OLED 90Hz",
-    battery: "65 Vt·soat",
-    priceRange: "$849 – $999",
-    description: "Hamyonbop narxda OLED ekran va AI tezlatkichini taqdim etuvchi kundalik noutbuk.",
-    pros: ["Yaxshi narx/sifat nisbati", "OLED displey", "Ko'p portlar"],
-    cons: ["O'rtacha dinamiklar", "Plastik elementlar"]
-  },
-  {
-    id: "lap-msi-raider",
-    brand: "MSI",
-    model: "Raider GE78 HX",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1625842268584-8f3296236761?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core i9-14900HX (24-yadro)",
-    ram: "32 GB DDR5-5600",
-    storage: "2 TB NVMe SSD",
-    gpu: "NVIDIA GeForce RTX 4080 12GB",
-    display: "17 dyuym QHD+ 240Hz IPS",
-    battery: "99.9 Vt·soat",
-    priceRange: "$2,599 – $2,999",
-    description: "Maksimal unumdorlikni talab qiluvchi geymerlar va muhandislar uchun ish stansiyasi.",
-    pros: ["Eng yuqori unumdorlik", "Kuchli sovutish", "Xotirani kengaytirish"],
-    cons: ["Og'ir (3.1 kg)", "Batareya vaqti qisqa"]
-  },
-  {
-    id: "lap-ms-surface",
-    brand: "Microsoft",
-    model: "Surface Laptop 7 (13.8)",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?auto=format&fit=crop&w=800&q=80",
-    cpu: "Qualcomm Snapdragon X Elite",
-    ram: "16 GB LPDDR5x",
-    storage: "512 GB Gen 4 SSD",
-    gpu: "Qualcomm Adreno GPU",
-    display: "13.8 dyuym PixelSense Flow 120Hz",
-    battery: "54 Vt·soat (20 soatgacha)",
-    priceRange: "$1,199 – $1,399",
-    description: "Copilot+ AI funksiyalari va rekord darajadagi batareya ishlash vaqtiga ega noutbuk.",
-    pros: ["20 soatgacha avtonomlik", "Haptic trekpad", "Tezkor uyg'onish"],
-    cons: ["Ayrim eski x86 dasturlar emulyatsiyada ishlaydi"]
-  },
-  {
-    id: "lap-samsung-gb4",
-    brand: "Samsung",
-    model: "Galaxy Book4 Ultra",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core Ultra 9 185H",
-    ram: "32 GB LPDDR5X",
-    storage: "1 TB SSD",
-    gpu: "NVIDIA GeForce RTX 4070 8GB",
-    display: "16 dyuym Dynamic AMOLED 2X 120Hz",
-    battery: "76 Vt·soat",
-    priceRange: "$2,199 – $2,399",
-    description: "Samsung Galaxy ekotizimi bilan integratsiyalashgan sensor AMOLED ekranli noutbuk.",
-    pros: ["Dynamic AMOLED 2X ekran", "Galaxy telefonlar bilan sinxronizatsiya", "Yengil korpus"],
-    cons: ["Yuqori narx", "Barmoq izlari qolishi mumkin"]
-  },
-  {
-    id: "lap-razer-blade",
-    brand: "Razer",
-    model: "Blade 16 (2024)",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core i9-14900HX",
-    ram: "32 GB DDR5",
-    storage: "1 TB SSD",
-    gpu: "NVIDIA GeForce RTX 4080 12GB",
-    display: "16 dyuym QHD+ 240Hz OLED",
-    battery: "95.2 Vt·soat",
-    priceRange: "$2,899 – $3,299",
-    description: "Yaxlit qora anodlangan alyuminiydan ishlangan premium o'yin va ijod noutbuki.",
-    pros: ["240Hz OLED 0.2ms ekran", "Yaxlit metall korpus", "Ixcham o'lcham"],
-    cons: ["Juda qimmat", "Yuklamada shovqinli"]
-  },
-  {
-    id: "lap-huawei-matebook",
-    brand: "Huawei",
-    model: "MateBook X Pro (2024)",
-    year: 2024,
-    imageUrl: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80",
-    cpu: "Intel Core Ultra 9 185H",
-    ram: "32 GB LPDDR5X",
-    storage: "1 TB SSD",
-    gpu: "Intel Arc Graphics",
-    display: "14.2 dyuym Flexible OLED 120Hz",
-    battery: "70 Vt·soat",
-    priceRange: "$1,699 – $1,899",
-    description: "Atigi 980 gramm og'irlikdagi magniy qotishmali ultrayengil flagman noutbuk.",
-    pros: ["980 gramm rekord yengillik", "3.1K Flexible OLED ekran", "90W tez quvvatlash"],
-    cons: ["Portlar kam (3 ta USB-C)"]
-  }
-];
-
-const SMARTPHONES_CATALOG: PhoneSpec[] = [
-  {
-    id: "ph-iphone16pm",
-    brand: "Apple iPhone",
-    model: "iPhone 16 Pro Max",
-    releaseDate: "2024-yil Sentabr",
-    imageUrl: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&w=800&q=80",
-    display: "6.9 dyuym LTPO Super Retina XDR OLED, 120Hz",
-    processor: "Apple A18 Pro (3 nm)",
-    ramStorage: "8 GB RAM / 256 GB – 1 TB",
-    mainCamera: "48 MP asosiy + 48 MP ultra-keng + 12 MP 5x periskop",
-    frontCamera: "12 MP TrueDepth",
-    battery: "4685 mA·soat",
-    charging: "25W MagSafe / 30W simli",
-    os: "iOS 18",
-    price: "$1,199"
-  },
-  {
-    id: "ph-s24u",
-    brand: "Samsung Galaxy",
-    model: "Samsung Galaxy S24 Ultra",
-    releaseDate: "2024-yil Yanvar",
-    imageUrl: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&w=800&q=80",
-    display: "6.8 dyuym Dynamic LTPO AMOLED 2X, 120Hz",
-    processor: "Snapdragon 8 Gen 3 for Galaxy",
-    ramStorage: "12 GB RAM / 256 GB – 1 TB",
-    mainCamera: "200 MP asosiy + 50 MP 5x + 10 MP 3x + 12 MP",
-    frontCamera: "12 MP Dual Pixel",
-    battery: "5000 mA·soat",
-    charging: "45W simli / 15W simsiz",
-    os: "Android 14 (One UI 6.1)",
-    price: "$1,099"
-  },
-  {
-    id: "ph-xiaomi14u",
-    brand: "Xiaomi",
-    model: "Xiaomi 14 Ultra",
-    releaseDate: "2024-yil Fevral",
-    imageUrl: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=800&q=80",
-    display: "6.73 dyuym LTPO AMOLED 120Hz",
-    processor: "Snapdragon 8 Gen 3",
-    ramStorage: "16 GB RAM / 512 GB – 1 TB",
-    mainCamera: "50 MP 1-dyuymli Leica Summilux (4x50 MP)",
-    frontCamera: "32 MP",
-    battery: "5000 mA·soat",
-    charging: "90W simli / 80W simsiz",
-    os: "Android 14 (HyperOS)",
-    price: "$1,050"
-  },
-  {
-    id: "ph-redmi-note13",
-    brand: "Redmi",
-    model: "Redmi Note 13 Pro+ 5G",
-    releaseDate: "2024-yil Yanvar",
-    imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80",
-    display: "6.67 dyuym AMOLED 120Hz, IP68",
-    processor: "MediaTek Dimensity 7200 Ultra",
-    ramStorage: "12 GB RAM / 512 GB",
-    mainCamera: "200 MP OIS + 8 MP + 2 MP",
-    frontCamera: "16 MP",
-    battery: "5000 mA·soat",
-    charging: "120W HyperCharge",
-    os: "Android 14 (HyperOS)",
-    price: "$360"
-  },
-  {
-    id: "ph-poco-f6",
-    brand: "POCO",
-    model: "POCO F6 Pro",
-    releaseDate: "2024-yil May",
-    imageUrl: "https://images.unsplash.com/photo-1565849904461-04a58ad377e0?auto=format&fit=crop&w=800&q=80",
-    display: "6.67 dyuym WQHD+ Flow AMOLED 120Hz",
-    processor: "Snapdragon 8 Gen 2",
-    ramStorage: "12 GB / 512 GB",
-    mainCamera: "50 MP OIS + 8 MP + 2 MP",
-    frontCamera: "16 MP",
-    battery: "5000 mA·soat",
-    charging: "120W HyperCharge",
-    os: "Android 14 (HyperOS)",
-    price: "$460"
-  },
-  {
-    id: "ph-pixel9pro",
-    brand: "Google Pixel",
-    model: "Google Pixel 9 Pro XL",
-    releaseDate: "2024-yil Avgust",
-    imageUrl: "https://images.unsplash.com/photo-1591337676887-a217a6970a8a?auto=format&fit=crop&w=800&q=80",
-    display: "6.8 dyuym Super Actua LTPO OLED 120Hz",
-    processor: "Google Tensor G4",
-    ramStorage: "16 GB RAM / 256 GB – 1 TB",
-    mainCamera: "50 MP + 48 MP 5x periskop + 48 MP",
-    frontCamera: "42 MP avtofokus",
-    battery: "5060 mA·soat",
-    charging: "37W simli / 23W simsiz",
-    os: "Android 14 (7 yil yangilanish)",
-    price: "$1,099"
-  },
-  {
-    id: "ph-huawei-pura",
-    brand: "Huawei",
-    model: "Huawei Pura 70 Ultra",
-    releaseDate: "2024-yil Aprel",
-    imageUrl: "https://images.unsplash.com/photo-1580910051074-3eb694886505?auto=format&fit=crop&w=800&q=80",
-    display: "6.8 dyuym LTPO OLED 120Hz",
-    processor: "Kirin 9010",
-    ramStorage: "16 GB RAM / 512 GB",
-    mainCamera: "50 MP 1-dyuymli obyektiv + 50 MP telefoto + 40 MP",
-    frontCamera: "13 MP",
-    battery: "5200 mA·soat",
-    charging: "100W simli / 80W simsiz",
-    os: "EMUI 14.2 / HarmonyOS",
-    price: "$1,150"
-  },
-  {
-    id: "ph-honor-magic",
-    brand: "Honor",
-    model: "Honor Magic6 Pro",
-    releaseDate: "2024-yil Yanvar",
-    imageUrl: "https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?auto=format&fit=crop&w=800&q=80",
-    display: "6.8 dyuym LTPO OLED 120Hz",
-    processor: "Snapdragon 8 Gen 3",
-    ramStorage: "12 GB RAM / 512 GB",
-    mainCamera: "50 MP + 180 MP periskop + 50 MP",
-    frontCamera: "50 MP + 3D ToF",
-    battery: "5600 mA·soat",
-    charging: "80W simli / 66W simsiz",
-    os: "Android 14 (MagicOS 8.0)",
-    price: "$980"
-  },
-  {
-    id: "ph-oneplus12",
-    brand: "OnePlus",
-    model: "OnePlus 12",
-    releaseDate: "2024-yil Yanvar",
-    imageUrl: "https://images.unsplash.com/photo-1533228100845-08145b01de14?auto=format&fit=crop&w=800&q=80",
-    display: "6.82 dyuym 2K LTPO AMOLED 120Hz",
-    processor: "Snapdragon 8 Gen 3",
-    ramStorage: "16 GB RAM / 512 GB",
-    mainCamera: "50 MP Sony + 64 MP 3x Hasselblad + 48 MP",
-    frontCamera: "32 MP",
-    battery: "5400 mA·soat",
-    charging: "100W SUPERVOOC / 50W simsiz",
-    os: "Android 14 (OxygenOS 14)",
-    price: "$799"
-  },
-  {
-    id: "ph-oppo-find",
-    brand: "OPPO",
-    model: "OPPO Find X7 Ultra",
-    releaseDate: "2024-yil Yanvar",
-    imageUrl: "https://images.unsplash.com/photo-1574944985070-8f3ebc6b79d2?auto=format&fit=crop&w=800&q=80",
-    display: "6.82 dyuym QHD+ LTPO AMOLED 120Hz",
-    processor: "Snapdragon 8 Gen 3",
-    ramStorage: "16 GB RAM / 512 GB",
-    mainCamera: "4x50 MP Hasselblad periskop tizimi",
-    frontCamera: "32 MP",
-    battery: "5000 mA·soat",
-    charging: "100W simli / 50W simsiz",
-    os: "Android 14 (ColorOS 14)",
-    price: "$950"
-  },
-  {
-    id: "ph-vivo-x100",
-    brand: "Vivo",
-    model: "Vivo X100 Pro",
-    releaseDate: "2023-yil Noyabr",
-    imageUrl: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&w=800&q=80",
-    display: "6.78 dyuym LTPO AMOLED 120Hz",
-    processor: "MediaTek Dimensity 9300",
-    ramStorage: "16 GB RAM / 512 GB",
-    mainCamera: "50 MP 1-dyuym ZEISS APO + 50 MP",
-    frontCamera: "32 MP",
-    battery: "5400 mA·soat",
-    charging: "100W simli / 50W simsiz",
-    os: "Android 14 (Funtouch OS 14)",
-    price: "$899"
-  },
-  {
-    id: "ph-realme-gt6",
-    brand: "Realme",
-    model: "Realme GT 6",
-    releaseDate: "2024-yil Iyun",
-    imageUrl: "https://images.unsplash.com/photo-1585060544812-6b45742d762f?auto=format&fit=crop&w=800&q=80",
-    display: "6.78 dyuym LTPO AMOLED 120Hz",
-    processor: "Snapdragon 8s Gen 3",
-    ramStorage: "12 GB RAM / 256 GB",
-    mainCamera: "50 MP Sony OIS + 50 MP telefoto + 8 MP",
-    frontCamera: "32 MP",
-    battery: "5500 mA·soat",
-    charging: "120W SUPERVOOC",
-    os: "Android 14 (Realme UI 5.0)",
-    price: "$549"
-  },
-  {
-    id: "ph-nothing-2a",
-    brand: "Nothing",
-    model: "Nothing Phone (2a) Plus",
-    releaseDate: "2024-yil Iyul",
-    imageUrl: "https://images.unsplash.com/photo-1556656793-08538906a9f8?auto=format&fit=crop&w=800&q=80",
-    display: "6.7 dyuym Flexible AMOLED 120Hz, Glyph LED",
-    processor: "MediaTek Dimensity 7350 Pro",
-    ramStorage: "12 GB RAM / 256 GB",
-    mainCamera: "50 MP OIS + 50 MP ultra-keng",
-    frontCamera: "50 MP",
-    battery: "5000 mA·soat",
-    charging: "50W simli",
-    os: "Android 14 (Nothing OS 2.6)",
-    price: "$399"
-  }
-];
-
-const OPERATORS_UZ: OperatorInfo[] = [
-  {
-    id: "beeline",
-    name: "Beeline Uzbekistan",
-    badgeColor: "bg-amber-400 text-slate-950",
-    supportPhone: "+998 90 185-00-55",
-    shortNumbers: ["0611", "0777"],
-    balanceUssd: "*102#",
-    internetUssd: "*103#",
-    ussdList: [
-      { code: "*102#", title: "Asosiy balansni tekshirish" },
-      { code: "*103#", title: "Internet trafik qoldig'i" },
-      { code: "*105#", title: "Daqiqa va SMS qoldig'i" },
-      { code: "*110*05#", title: "Joriy tarif rejasini bilish" },
-      { code: "*148#", title: "O'z raqamingizni aniqlash" }
-    ],
-    tariffs: [
-      { name: "Oson 1", price: "35 000 so'm/oy", info: "10 GB internet, 1000 daqiqa, 500 SMS" },
-      { name: "Yana Bitta", price: "55 000 so'm/oy", info: "25 GB internet, cheksiz qo'ng'iroqlar" }
-    ],
-    packages: [
-      { name: "Internet 5 GB", size: "5 GB (30 kun)", ussd: "*1*05#" },
-      { name: "Internet 15 GB", size: "15 GB (30 kun)", ussd: "*1*15#" }
-    ],
-    website: "https://beeline.uz"
-  },
-  {
-    id: "ucell",
-    name: "Ucell",
-    badgeColor: "bg-purple-600 text-white",
-    supportPhone: "+998 93 180-00-00",
-    shortNumbers: ["8123", "9111"],
-    balanceUssd: "*100#",
-    internetUssd: "*107#",
-    ussdList: [
-      { code: "*100#", title: "Balans va tarif holati" },
-      { code: "*107#", title: "Internet MB qoldig'ini ko'rish" },
-      { code: "*102#", title: "Daqiqa va SMS qoldig'i" },
-      { code: "*450#", title: "O'z raqamini aniqlash" }
-    ],
-    tariffs: [
-      { name: "Katta Doimiy 40", price: "40 000 so'm/oy", info: "12 GB internet, 1500 daqiqa, 500 SMS" },
-      { name: "Katta Doimiy 65", price: "65 000 so'm/oy", info: "30 GB internet, cheksiz qo'ng'iroqlar" }
-    ],
-    packages: [
-      { name: "Oylik 6 GB", size: "6 GB (30 kun)", ussd: "*555*3*1#" },
-      { name: "Oylik 16 GB", size: "16 GB (30 kun)", ussd: "*555*3*3#" }
-    ],
-    website: "https://ucell.uz"
-  },
-  {
-    id: "uzmobile",
-    name: "Uzmobile (Uztelecom)",
-    badgeColor: "bg-sky-600 text-white",
-    supportPhone: "+998 71 200-09-09",
-    shortNumbers: ["1099", "1084"],
-    balanceUssd: "*100#",
-    internetUssd: "*107#",
-    ussdList: [
-      { code: "*100#", title: "Balans va joriy tarifni tekshirish" },
-      { code: "*107#", title: "Internet trafik qoldig'i" },
-      { code: "*100*4#", title: "Abonent raqamini aniqlash" },
-      { code: "*111#", title: "Yagona USSD menyu" }
-    ],
-    tariffs: [
-      { name: "Milliy 35", price: "35 000 so'm/oy", info: "10 GB internet, tarmoq ichida cheksiz" },
-      { name: "Milliy 50", price: "50 000 so'm/oy", info: "20 GB internet, O'zbekiston bo'ylab cheksiz" }
-    ],
-    packages: [
-      { name: "Internet 5 GB", size: "5 GB (30 kun)", ussd: "*147*10074#" },
-      { name: "Internet 12 GB", size: "12 GB (30 kun)", ussd: "*147*10076#" }
-    ],
-    website: "https://uztelecom.uz"
-  },
-  {
-    id: "mobiuz",
-    name: "Mobiuz",
-    badgeColor: "bg-red-600 text-white",
-    supportPhone: "+998 97 130-09-09",
-    shortNumbers: ["0890", "0990"],
-    balanceUssd: "*100#",
-    internetUssd: "*102#",
-    ussdList: [
-      { code: "*100#", title: "Hisob holatini tekshirish" },
-      { code: "*102#", title: "Internet MB qoldig'ini tekshirish" },
-      { code: "*150#", title: "O'z raqamingizni bilish" },
-      { code: "*111#", title: "Asosiy USSD menyu" }
-    ],
-    tariffs: [
-      { name: "Mobi 30+", price: "30 000 so'm/oy", info: "8 GB internet, 800 daqiqa, 800 SMS" },
-      { name: "Mobi 50", price: "50 000 so'm/oy", info: "20 GB internet, cheksiz qo'ng'iroqlar" }
-    ],
-    packages: [
-      { name: "MobiNet 5 GB", size: "5 GB (30 kun)", ussd: "*171*019*4*0101*1#" },
-      { name: "MobiNet 15 GB", size: "15 GB (30 kun)", ussd: "*171*019*6*0101*1#" }
-    ],
-    website: "https://mobi.uz"
-  },
-  {
-    id: "humans",
-    name: "Humans",
-    badgeColor: "bg-amber-300 text-slate-950",
-    supportPhone: "+998 71 231-08-08",
-    shortNumbers: ["1234"],
-    balanceUssd: "*100#",
-    internetUssd: "*107#",
-    ussdList: [
-      { code: "*100#", title: "Asosiy balansni tekshirish" },
-      { code: "*107#", title: "Internet trafik qoldig'i" },
-      { code: "*111#", title: "Humans USSD ma'lumot menyusi" }
-    ],
-    tariffs: [
-      { name: "Konstruktor Bazaviy", price: "30 000 so'm/oy", info: "Moslashuvchan GB va daqiqalar" },
-      { name: "Cheksiz Aloqa", price: "60 000 so'm/oy", info: "25 GB internet + cheksiz qo'ng'iroqlar" }
-    ],
-    packages: [
-      { name: "Qo'shimcha 5 GB", size: "5 GB (30 kun)", ussd: "Humans ilovasi" }
-    ],
-    website: "https://humans.uz"
-  }
-];
-
-const DIRECTORY_LIST: OrgDirectoryItem[] = [
-  {
-    id: "org-101",
-    name: "Yong'in xavfsizligi xizmati (FVV)",
-    category: "Favqulodda xizmatlar",
-    phone: "101",
-    description: "Yong'in va favqulodda qutqaruv holatlarida 24/7 tezkor yordam.",
-    website: "https://gov.uz/fvv",
-    address: "O'zbekiston bo'ylab barcha hududlar",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-102",
-    name: "Ichki ishlar organlari",
-    category: "Favqulodda xizmatlar",
-    phone: "102",
-    description: "Jamoat tartibi va xavfsizlik bo'yicha shoshilinch murojaatlar.",
-    website: "https://gov.uz/iiv",
-    address: "O'zbekiston bo'ylab barcha hududlar",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-103",
-    name: "Tez tibbiy yordam",
-    category: "Favqulodda xizmatlar",
-    phone: "103",
-    description: "Shoshilinch tibbiy yordam brigadasini chaqirish yagona raqami.",
-    website: "https://gov.uz/ssv",
-    address: "O'zbekiston bo'ylab barcha hududlar",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-104",
-    name: "Gaz avariya xizmati",
-    category: "Gaz xizmati",
-    phone: "104",
-    description: "Tabiiy gaz sizib chiqishi va avariya holatlarida tezkor chaqiruv.",
-    website: "https://hududgaz.uz",
-    address: "Hududgazta'minot bo'linmalari",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-1050",
-    name: "Qutqaruv xizmati (FVV)",
-    category: "Favqulodda xizmatlar",
-    phone: "1050",
-    description: "Favqulodda vaziyatlarda qutqaruv va texnik yordam xizmati.",
-    website: "https://gov.uz/fvv",
-    address: "O'zbekiston Respublikasi",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-nbu",
-    name: "O'zmilliybank (NBU)",
-    category: "Banklar",
-    phone: "+998 78 148-00-10",
-    description: "O'zbekiston Milliy banki mijozlarni qo'llab-quvvatlash markazi.",
-    website: "https://nbu.uz",
-    address: "Toshkent sh., Amir Temur shoh ko'chasi, 101",
-    hours: "24/7 (Call-markaz)"
-  },
-  {
-    id: "org-kapital",
-    name: "Kapitalbank",
-    category: "Banklar",
-    phone: "+998 71 200-15-15",
-    description: "Tijorat banki, Uzcard/Humo/Visa kartalar va kreditlar xizmati.",
-    website: "https://kapitalbank.uz",
-    address: "Toshkent sh., Sayilgoh ko'chasi, 7",
-    hours: "24/7 (Call-markaz)"
-  },
-  {
-    id: "org-mygov",
-    name: "Yagona davlat xizmatlari portali (my.gov.uz)",
-    category: "Davlat tashkilotlari",
-    phone: "1148",
-    description: "Elektron davlat xizmatlari va ma'lumotnomalar bo'yicha yordam markazi.",
-    website: "https://my.gov.uz",
-    address: "Toshkent sh., Mo'minov ko'chasi, 7/2",
-    hours: "Dush–Jum, 09:00 – 18:00"
-  },
-  {
-    id: "org-uztelecom",
-    name: "Uztelecom (Uy interneti va IPTV)",
-    category: "Internet provayderlar",
-    phone: "1084",
-    description: "Optik tolali internet, GPON va uy telefoni texnik yordami.",
-    website: "https://uztelecom.uz",
-    address: "Toshkent sh., Navoiy ko'chasi, 28A",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-het",
-    name: "Hududiy elektr tarmoqlari (HET)",
-    category: "Elektr energiyasi",
-    phone: "1154",
-    description: "Elektr ta'minoti uzilishlari va hisoblagichlar bo'yicha call-markaz.",
-    website: "https://het.uz",
-    address: "Toshkent sh., Osiyo ko'chasi, 8",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-suv",
-    name: "O'zsuvta'minot (Ichimlik suvi)",
-    category: "Suv ta'minoti",
-    phone: "1255",
-    description: "Ichimlik suvi va kanalizatsiya tarmoqlari bo'yicha murojaatlar markazi.",
-    website: "https://uzsuv.uz",
-    address: "Toshkent sh., Bog'ishamol ko'chasi, 152",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-uzair",
-    name: "Uzbekistan Airways",
-    category: "Aviakompaniyalar",
-    phone: "+998 78 140-02-00",
-    description: "Milliy aviakompaniya chiptalari va reyslar jadvali ma'lumot markazi.",
-    website: "https://uzairways.com",
-    address: "Toshkent sh., Amir Temur shoh ko'chasi, 41",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-railway",
-    name: "O'zbekiston Temir Yo'llari",
-    category: "Transport",
-    phone: "1005",
-    description: "Poyezd chiptalari va vokzallar ma'lumotnomasi.",
-    website: "https://railway.uz",
-    address: "Toshkent sh., Taras Shevchenko ko'chasi, 7",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-tuit",
-    name: "Toshkent Axborot Texnologiyalari Universiteti (TATU)",
-    category: "Universitetlar",
-    phone: "+998 71 238-64-15",
-    description: "Axborot texnologiyalari va telekommunikatsiya yo'nalishidagi yetakchi OTM.",
-    website: "https://tuit.uz",
-    address: "Toshkent sh., Amir Temur shoh ko'chasi, 108",
-    hours: "Dush–Shan, 09:00 – 18:00"
-  },
-  {
-    id: "org-akfa",
-    name: "Akfa Medline Tibbiyot Markazi",
-    category: "Shifoxona va klinikalar",
-    phone: "+998 71 203-30-03",
-    description: "Zamonaviy diagnostika va ko'p tarmoqli tibbiyot klinikasi.",
-    website: "https://akfamedline.uz",
-    address: "Toshkent sh., Kichik halqa yo'li, 5A",
-    hours: "24/7 tunu-kun"
-  },
-  {
-    id: "org-uzpost",
-    name: "UzPost (O'zbekiston pochtasi)",
-    category: "Yetkazib berish",
-    phone: "+998 71 233-57-47",
-    description: "Respublika bo'ylab pochta jo'natmalari va kuryerlik xizmati.",
-    website: "https://uz.post",
-    address: "Toshkent sh., Oloy ko'chasi, 1",
-    hours: "Dush–Jum, 09:00 – 18:00"
-  }
-];
-
-const NEWS_ARTICLES: NewsItem[] = [
-  {
-    id: "nw-1",
-    title: "O'zbekistonda sun'iy intellekt va IT ekotizimi yangi bosqichga chiqmoqda",
-    category: "O'zbekiston yangiliklari",
-    summary: "Mahalliy startaplar va dasturchilar uchun bulutli hisoblash klasterlari hamda ta'lim dasturlari kengaytirilmoqda.",
-    date: "12.11.2026",
-    source: "IT Park News",
-    url: "https://it-park.uz",
-    imageUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "nw-2",
-    title: "Yangi avlod 2 nanometrli protsessorlar noutbuk batareyasini 35% ga uzaytiradi",
-    category: "Texnologiya",
-    summary: "Yarimo'tkazgich ishlab chiqaruvchilar 2nm texnologiyasi orqali energiya samaradorligini rekord darajaga olib chiqdi.",
-    date: "12.11.2026",
-    source: "Tech Review",
-    url: "https://www.theverge.com",
-    imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "nw-3",
-    title: "Multimodal AI tizimlari dasturlash va ilmiy tadqiqotlarni tezlashtirmoqda",
-    category: "AI yangiliklari",
-    summary: "Zamonaviy sun'iy intellekt yordamchilari murakkab arxitektura va katta hajmli hujjatlarni soniyalar ichida tahlil qilmoqda.",
-    date: "11.11.2026",
-    source: "Google AI Blog",
-    url: "https://blog.google/technology/ai/",
-    imageUrl: "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "nw-4",
-    title: "Silikon-uglerod batareyali smartfonlar 6000 mA·soat sig'im bilan taqdim etilmoqda",
-    category: "Smartfonlar",
-    summary: "Yangi avlod akkumulyatorlar yupqa korpusni saqlagan holda ikki kungacha avtonom ishlash imkonini beradi.",
-    date: "10.11.2026",
-    source: "GSMArena",
-    url: "https://www.gsmarena.com",
-    imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "nw-5",
-    title: "OLED displeyli noutbuklar 2026-yilda o'rta narx toifasida ham ommalashdi",
-    category: "Kompyuterlar",
-    summary: "Yuqori kontrast va 120Hz chastotali OLED ekranlar endi ko'pchilik ultrabuklarda asosiy standartga aylandi.",
-    date: "09.11.2026",
-    source: "NotebookCheck",
-    url: "https://www.notebookcheck.net",
-    imageUrl: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "nw-6",
-    title: "Koinot teleskoplari uzoq ekzosayyoralar atmosferasini o'rganishda yangi natijalarga erishdi",
-    category: "Koinot",
-    summary: "Astronomlar spektral tahlil yordamida yorug'lik yillari uzoqlikdagi sayyoralar tarkibini aniqladi.",
-    date: "08.11.2026",
-    source: "NASA Science",
-    url: "https://www.nasa.gov",
-    imageUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80"
-  }
-];
-
-const AI_TOOLS_LIST: AiToolEntry[] = [
-  {
-    id: "tool-gemini",
-    name: "Google Gemini",
-    category: "Matn va Yordamchi",
-    description: "Matn, kod, rasm va hujjatlarni tahlil qiluvchi ko'p funksiyali sun'iy intellekt.",
-    pricing: "Bepul / Pro",
-    url: "https://gemini.google.com"
-  },
-  {
-    id: "tool-chatgpt",
-    name: "ChatGPT (OpenAI)",
-    category: "Matn va Yordamchi",
-    description: "Savol-javob, maqola yozish, tarjima va mantiqiy tahlil uchun mashhur AI chat.",
-    pricing: "Bepul / Plus",
-    url: "https://chatgpt.com"
-  },
-  {
-    id: "tool-claude",
-    name: "Claude (Anthropic)",
-    category: "Dasturlash va Tahlil",
-    description: "Katta hajmdagi hujjatlar va dasturiy arxitektura bilan ishlashga ixtisoslashgan.",
-    pricing: "Bepul / Pro",
-    url: "https://claude.ai"
-  },
-  {
-    id: "tool-midjourney",
-    name: "Midjourney",
-    category: "Rasm va Dizayn",
-    description: "Matnli tavsif asosida yuqori badiiy sifatdagi illyustratsiya va dizaynlar yaratish.",
-    pricing: "Pullik obuna",
-    url: "https://www.midjourney.com"
-  },
-  {
-    id: "tool-perplexity",
-    name: "Perplexity AI",
-    category: "Qidiruv va Tadqiqot",
-    description: "Internetdagi manbalarga asoslangan aniq va havolali javoblar beruvchi AI qidiruv.",
-    pricing: "Bepul / Pro",
-    url: "https://www.perplexity.ai"
-  },
-  {
-    id: "tool-copilot",
-    name: "GitHub Copilot",
-    category: "Dasturlash va Tahlil",
-    description: "Kod yozish jarayonida real vaqtda funksiyalar va testlarni taklif qiluvchi yordamchi.",
-    pricing: "Bepul / Pro",
-    url: "https://github.com/features/copilot"
-  }
-];
-
-// ============================================================================
-// MAIN APPLICATION COMPONENT
-// ============================================================================
+// --- MAIN APPLICATION ---
 export default function App() {
   // Navigation & Theme
-  const [activeSection, setActiveSection] = useState<SectionKey>(() =>
-    readStorage<SectionKey>("vermix_v2_section", "home")
-  );
-  const [darkMode, setDarkMode] = useState<boolean>(() =>
-    readStorage<boolean>("vermix_v2_dark", false)
-  );
-  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<SectionId>('home');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [globalQuery, setGlobalQuery] = useState('');
+  const [recentSections, setRecentSections] = useState<SectionId[]>(['home', 'ai-assistant', 'computers', 'operators']);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [now, setNow] = useState(new Date());
 
-  // Authentication State (Google + Phone Number +998 OTP)
-  const [auth, setAuth] = useState<UserAuth>(() =>
-    readStorage<UserAuth>("vermix_v2_auth", {
-      isAuthenticated: false,
-      provider: "guest",
-      name: "Mehmon Foydalanuvchi",
-      identifier: "Hisobga kirilmagan",
-      avatarLetter: "V"
-    })
-  );
-  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
-  const [authTab, setAuthTab] = useState<"google" | "phone">("google");
-  const [googleEmailInput, setGoogleEmailInput] = useState<string>("");
-  const [googleNameInput, setGoogleNameInput] = useState<string>("");
-  const [phoneInput, setPhoneInput] = useState<string>("+998 ");
-  const [otpSent, setOtpSent] = useState<boolean>(false);
-  const [otpInput, setOtpInput] = useState<string>("");
-  const [demoOtpCode, setDemoOtpCode] = useState<string>("4829");
-  const [authError, setAuthError] = useState<string>("");
-
-  // Global Search & Recent History
-  const [globalSearch, setGlobalSearch] = useState<string>("");
-  const [searchHistory, setSearchHistory] = useState<string[]>(() =>
-    readStorage<string[]>("vermix_v2_search_hist", ["MacBook Pro", "Beeline *102#", "iPhone 16 Pro Max"])
-  );
-
-  // Live Clock & Weather
-  const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
-  const [city, setCity] = useState<"Samarqand" | "Toshkent" | "Buxoro" | "Farg'ona">(() =>
-    readStorage("vermix_v2_city", "Samarqand")
-  );
-
-  // Bookmarks
-  const [bookmarks, setBookmarks] = useState<SavedBookmark[]>(() =>
-    readStorage<SavedBookmark[]>("vermix_v2_bookmarks", [
-      {
-        id: "lap-apple-m4",
-        type: "Kompyuter",
-        title: "MacBook Pro 14 (M4 Pro)",
-        subtitle: "Apple • $1,999 – $2,299",
-        section: "computers"
-      }
-    ])
-  );
+  // Auth & Profile (Supabase + Local Persistence)
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    const saved = localStorage.getItem('vermix_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<'google' | 'phone'>('google');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Pinterest State
-  const [pins, setPins] = useState<PinCard[]>(() => readStorage<PinCard[]>("vermix_v2_pins", INITIAL_PINS));
-  const [pinCat, setPinCat] = useState<string>("Barchasi");
-  const [pinSearch, setPinSearch] = useState<string>("");
-  const [likedPins, setLikedPins] = useState<string[]>(() => readStorage<string[]>("vermix_v2_liked_pins", ["pin-2"]));
-  const [boards, setBoards] = useState<string[]>(() =>
-    readStorage<string[]>("vermix_v2_boards", ["Ish stoli g'oyalari", "O'zbekiston sayohati", "Dizayn ilhomlari"])
-  );
-  const [newBoardTitle, setNewBoardTitle] = useState<string>("");
+  const [pins, setPins] = useState<PinItem[]>(() => {
+    const saved = localStorage.getItem('vermix_pins');
+    return saved ? JSON.parse(saved) : INITIAL_PINS;
+  });
+  const [pinCategory, setPinCategory] = useState('Barchasi');
+  const [pinSearch, setPinSearch] = useState('');
+  const [likedPins, setLikedPins] = useState<string[]>([]);
+  const [newPinModal, setNewPinModal] = useState(false);
+  const [newPinTitle, setNewPinTitle] = useState('');
+  const [newPinUrl, setNewPinUrl] = useState('');
+  const [newPinCat, setNewPinCat] = useState('Texnologiya');
 
-  // Music State + Custom Track Upload / URL Modal
-  const [tracks, setTracks] = useState<TrackItem[]>(() =>
-    readStorage<TrackItem[]>("vermix_v2_tracks", DEFAULT_TRACKS)
-  );
-  const [currentTrack, setCurrentTrack] = useState<TrackItem>(DEFAULT_TRACKS[0]);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [progressSec, setProgressSec] = useState<number>(0);
-  const [volume, setVolume] = useState<number>(0.75);
-  const [muted, setMuted] = useState<boolean>(false);
-  const [musicSearch, setMusicSearch] = useState<string>("");
-  const [musicFilter, setMusicFilter] = useState<string>("Barchasi");
-  const [favTracks, setFavTracks] = useState<string[]>(() => readStorage<string[]>("vermix_v2_fav_tracks", ["trk-1"]));
-  const [addMusicOpen, setAddMusicOpen] = useState<boolean>(false);
-  const [customTrackTitle, setCustomTrackTitle] = useState<string>("");
-  const [customTrackArtist, setCustomTrackArtist] = useState<string>("");
-  const [customTrackUrl, setCustomTrackUrl] = useState<string>("");
-  const [customTrackCover, setCustomTrackCover] = useState<string>("");
-  const [customFileError, setCustomFileError] = useState<string>("");
-
-  const htmlAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  // Music State
+  const [tracks, setTracks] = useState<TrackItem[]>(() => {
+    const saved = localStorage.getItem('vermix_tracks');
+    return saved ? JSON.parse(saved) : INITIAL_TRACKS;
+  });
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [muted, setMuted] = useState(false);
+  const [musicSearch, setMusicSearch] = useState('');
+  const [favoriteTracks, setFavoriteTracks] = useState<string[]>(['t1']);
+  const [addMusicModal, setAddMusicModal] = useState(false);
+  const [customTitle, setCustomTitle] = useState('');
+  const [customArtist, setCustomArtist] = useState('');
+  const [customAudioUrl, setCustomAudioUrl] = useState('');
+  const [customCoverUrl, setCustomCoverUrl] = useState('');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Videos State
-  const [videos, setVideos] = useState<SocialVideoItem[]>(() =>
-    readStorage<SocialVideoItem[]>("vermix_v2_videos", INITIAL_VIDEOS)
-  );
-  const [videoInputUrl, setVideoInputUrl] = useState<string>("");
-  const [activeVideo, setActiveVideo] = useState<SocialVideoItem>(INITIAL_VIDEOS[0]);
-  const [videoErr, setVideoErr] = useState<string>("");
+  const [videoUrlInput, setVideoUrlInput] = useState('');
+  const [videos, setVideos] = useState<VideoItem[]>(() => {
+    const saved = localStorage.getItem('vermix_videos');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'v1',
+        platform: 'YouTube',
+        originalUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+        title: 'YouTube Rasmiy Embed Namuna',
+        addedAt: 'Bugun',
+      },
+    ];
+  });
+  const [activeVideo, setActiveVideo] = useState<VideoItem | null>(videos[0] || null);
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   // Computers & Smartphones State
-  const [compBrand, setCompBrand] = useState<string>("Barchasi");
-  const [compSearch, setCompSearch] = useState<string>("");
-  const [detailLaptop, setDetailLaptop] = useState<LaptopSpec | null>(null);
-  const [compareLaptopIds, setCompareLaptopIds] = useState<string[]>(["lap-apple-m4", "lap-asus-rog"]);
-  const [showLaptopCompare, setShowLaptopCompare] = useState<boolean>(false);
+  const [compBrand, setCompBrand] = useState('Barchasi');
+  const [compSearch, setCompSearch] = useState('');
+  const [selectedComputer, setSelectedComputer] = useState<ComputerItem | null>(null);
+  const [compareComputers, setCompareComputers] = useState<string[]>(['c1', 'c2']);
 
-  const [phoneBrand, setPhoneBrand] = useState<string>("Barchasi");
-  const [phoneSearch, setPhoneSearch] = useState<string>("");
-  const [detailPhone, setDetailPhone] = useState<PhoneSpec | null>(null);
-  const [comparePhoneIds, setComparePhoneIds] = useState<string[]>(["ph-iphone16pm", "ph-s24u"]);
-  const [showPhoneCompare, setShowPhoneCompare] = useState<boolean>(false);
+  const [phoneBrand, setPhoneBrand] = useState('Barchasi');
+  const [phoneSearch, setPhoneSearch] = useState('');
+  const [selectedPhone, setSelectedPhone] = useState<PhoneItem | null>(null);
+  const [comparePhones, setComparePhones] = useState<string[]>(['s1', 's2']);
 
   // AI Assistant State
-  const [threads, setThreads] = useState<AiThread[]>(() =>
-    readStorage<AiThread[]>("vermix_v2_ai_threads", [
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    const saved = localStorage.getItem('vermix_chat');
+    return saved ? JSON.parse(saved) : [
       {
-        id: "th-1",
-        title: "Yangi suhbat",
-        messages: [
-          {
-            id: "m-1",
-            role: "assistant",
-            text: "Assalomu alaykum! Men VerMix AI yordamchisiman. Savol bering, matn tarjima qiling, kod yozing yoki murakkab mavzularni birga tahlil qilaylik.",
-            time: "Hozir"
-          }
-        ]
-      }
-    ])
-  );
-  const [activeThreadId, setActiveThreadId] = useState<string>("th-1");
-  const [aiPrompt, setAiPrompt] = useState<string>("");
-  const [aiBusy, setAiBusy] = useState<boolean>(false);
+        id: 'm1',
+        role: 'assistant',
+        content: 'Assalomu alaykum! Men **VerMix AI** yordamchisiman. Savollaringizga javob beraman, kod yozaman, matnlarni tarjima qilaman va hujjatlarni tahlil qilaman. Nimadan boshlaymiz?',
+        timestamp: 'Hozir',
+      },
+    ];
+  });
+  const [chatInput, setChatInput] = useState('');
+  const [aiThinking, setAiThinking] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [uploadedFileText, setUploadedFileText] = useState<string>('');
 
   // Calendar State
-  const todayIso = useMemo(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }, []);
-
-  const [calEvents, setCalEvents] = useState<CalendarItem[]>(() =>
-    readStorage<CalendarItem[]>("vermix_v2_calendar", [
-      {
-        id: "cal-1",
-        title: "VerMix platformasini Railway'ga joylash",
-        date: todayIso,
-        time: "15:00",
-        category: "Muhim sana",
-        color: "bg-blue-600",
-        notes: "Google va Telefon raqam autentifikatsiyasini tekshirish"
-      }
-    ])
-  );
-  const [calView, setCalView] = useState<"month" | "week" | "day">("month");
-  const [selectedDate, setSelectedDate] = useState<string>(todayIso);
-  const [monthCursor, setMonthCursor] = useState<Date>(() => new Date());
-  const [editEventId, setEditEventId] = useState<string | null>(null);
-  const [evTitle, setEvTitle] = useState<string>("");
-  const [evTime, setEvTime] = useState<string>("10:00");
-  const [evCategory, setEvCategory] = useState<CalendarItem["category"]>("Tadbir");
-  const [evColor, setEvColor] = useState<string>("bg-blue-600");
-  const [evNotes, setEvNotes] = useState<string>("");
+  const [events, setEvents] = useState<CalendarEvent[]>(() => {
+    const saved = localStorage.getItem('vermix_events');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return saved ? JSON.parse(saved) : [
+      { id: 'e1', title: 'VerMix loyihasini ishga tushirish', date: todayStr, time: '14:00', color: 'bg-blue-500', notes: 'Railway va Supabase tekshiruvi' },
+      { id: 'e2', title: 'Jamoa bilan uchrashuv', date: todayStr, time: '18:30', color: 'bg-emerald-500', notes: 'Yangi funksiyalar muhokamasi' },
+    ];
+  });
+  const [calView, setCalView] = useState<'month' | 'week' | 'day'>('month');
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDate, setNewEventDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newEventTime, setNewEventTime] = useState('12:00');
+  const [newEventColor, setNewEventColor] = useState('bg-blue-500');
 
   // Operators & Directory State
-  const [selectedOpId, setSelectedOpId] = useState<string>("beeline");
-  const [dirCat, setDirCat] = useState<string>("Barchasi");
-  const [dirQuery, setDirQuery] = useState<string>("");
-
-  // News & AI Tools State
-  const [newsCat, setNewsCat] = useState<string>("Barchasi");
-  const [aiToolCat, setAiToolCat] = useState<string>("Barchasi");
-  const [aiToolQuery, setAiToolQuery] = useState<string>("");
+  const [selectedOperator, setSelectedOperator] = useState<string>('beeline');
+  const [dirCategory, setDirCategory] = useState('Barchasi');
+  const [dirSearch, setDirSearch] = useState('');
 
   // Productivity Tools State
-  const [toolTab, setToolTab] = useState<string>("calc");
-  const [calcExpr, setCalcExpr] = useState<string>("0");
-  const [currVal, setCurrVal] = useState<string>("100");
-  const [currFrom, setCurrFrom] = useState<string>("USD");
-  const [currTo, setCurrTo] = useState<string>("UZS");
-  const [unitKind, setUnitKind] = useState<"length" | "weight" | "temp">("length");
-  const [unitNum, setUnitNum] = useState<string>("10");
-  const [unitFrom, setUnitFrom] = useState<string>("km");
-  const [unitTo, setUnitTo] = useState<string>("m");
-  const [swTime, setSwTime] = useState<number>(0);
-  const [swActive, setSwActive] = useState<boolean>(false);
-  const [timerLeft, setTimerLeft] = useState<number>(300);
-  const [timerActive, setTimerActive] = useState<boolean>(false);
-  const [quickNotes, setQuickNotes] = useState<string>(() =>
-    readStorage<string>("vermix_v2_notes", "VerMix tezkor eslatmalar:\n- Yangi g'oyalarni yozib borish")
-  );
-  const [todoList, setTodoList] = useState<{ id: string; text: string; done: boolean }[]>(() =>
-    readStorage("vermix_v2_todos", [
-      { id: "t-1", text: "Kompyuterlar va smartfonlarni taqqoslash", done: true },
-      { id: "t-2", text: "Shaxsiy musiqa pleylistini yaratish", done: false }
-    ])
-  );
-  const [todoInput, setTodoInput] = useState<string>("");
-  const [qrValue, setQrValue] = useState<string>("https://t.me/roz1matoff_me");
-  const [passLength, setPassLength] = useState<number>(16);
-  const [passWithSymbols, setPassWithSymbols] = useState<boolean>(true);
-  const [passOutput, setPassOutput] = useState<string>("VerMix@2026#Pro99");
-  const [wordText, setWordText] = useState<string>(
-    "VerMix — barcha kundalik raqamli xizmatlarni birlashtiruvchi zamonaviy ekotizim."
-  );
+  const [activeTool, setActiveTool] = useState<'calc' | 'currency' | 'unit' | 'timer' | 'notes' | 'todo' | 'qr' | 'password'>('calc');
+  const [calcExpr, setCalcExpr] = useState('');
+  const [usdAmount, setUsdAmount] = useState('100');
+  const [uzsRate] = useState(12850);
+  const [unitMeters, setUnitMeters] = useState('1000');
+  const [stopwatchSec, setStopwatchSec] = useState(0);
+  const [stopwatchRunning, setStopwatchRunning] = useState(false);
+  const [noteText, setNoteText] = useState(() => localStorage.getItem('vermix_notes') || 'Tezkor eslatmalar uchun bloknot...');
+  const [todos, setTodos] = useState<{ id: string; text: string; done: boolean }[]>(() => {
+    const saved = localStorage.getItem('vermix_todos');
+    return saved ? JSON.parse(saved) : [
+      { id: 'td1', text: 'Google Auth va SMS OTP ni tekshirish', done: true },
+      { id: 'td2', text: 'Yangi musiqa pleylist yaratish', done: false },
+    ];
+  });
+  const [todoInput, setTodoInput] = useState('');
+  const [qrText, setQrText] = useState('https://vermix-production-e57d21f6.up.railway.app');
+  const [genPass, setGenPass] = useState('VmX#92!kLp@2026');
 
-  // Contact Form State (@roz1matoff_me)
-  const [contactName, setContactName] = useState<string>("");
-  const [contactMsg, setContactMsg] = useState<string>("");
+  // News & AI Tools State
+  const [newsCategory, setNewsCategory] = useState('Barchasi');
+  const [aiToolCat, setAiToolCat] = useState('Barchasi');
+  const [aiToolSearch, setAiToolSearch] = useState('');
 
-  // ============================================================================
-  // TOAST & CLIPBOARD HELPERS
-  // ============================================================================
-  const notify = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => {
-      setToast((prev) => (prev === message ? null : prev));
-    }, 2800);
-  };
+  // Bookmarks State
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(() => {
+    const saved = localStorage.getItem('vermix_bookmarks');
+    return saved ? JSON.parse(saved) : [
+      { id: 'b1', type: 'Qurilma', title: 'MacBook Pro 14 (M4 Pro)', subtitle: 'Apple • $1,999', section: 'computers' },
+      { id: 'b2', type: 'Raqam', title: 'Tez tibbiy yordam — 103', subtitle: 'Favqulodda xizmatlar', section: 'directory' },
+    ];
+  });
 
-  const copyText = (value: string, label?: string) => {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(value).catch(() => {});
-    }
-    notify(label ? `${label}: ${value} nusxalandi` : `${value} nusxalandi`);
-  };
+  // Contact Form State
+  const [contactName, setContactName] = useState('');
+  const [contactMsg, setContactMsg] = useState('');
 
-  // ============================================================================
-  // PERSISTENCE & TIMERS EFFECTS
-  // ============================================================================
+  // --- EFFECTS ---
   useEffect(() => {
-    writeStorage("vermix_v2_section", activeSection);
-  }, [activeSection]);
-
-  useEffect(() => {
-    writeStorage("vermix_v2_dark", darkMode);
-  }, [darkMode]);
-
-  useEffect(() => {
-    writeStorage("vermix_v2_auth", auth);
-  }, [auth]);
-
-  useEffect(() => {
-    writeStorage("vermix_v2_bookmarks", bookmarks);
-  }, [bookmarks]);
-
-  useEffect(() => {
-    writeStorage("vermix_v2_pins", pins);
-    writeStorage("vermix_v2_liked_pins", likedPins);
-    writeStorage("vermix_v2_boards", boards);
-  }, [pins, likedPins, boards]);
-
-  useEffect(() => {
-    // Only persist tracks that do not rely on ephemeral blob: URLs
-    const serializable = tracks.filter((t) => !t.audioUrl || !t.audioUrl.startsWith("blob:"));
-    writeStorage("vermix_v2_tracks", serializable);
-    writeStorage("vermix_v2_fav_tracks", favTracks);
-  }, [tracks, favTracks]);
-
-  useEffect(() => {
-    writeStorage("vermix_v2_videos", videos);
-    writeStorage("vermix_v2_ai_threads", threads);
-    writeStorage("vermix_v2_calendar", calEvents);
-    writeStorage("vermix_v2_notes", quickNotes);
-    writeStorage("vermix_v2_todos", todoList);
-    writeStorage("vermix_v2_city", city);
-  }, [videos, threads, calEvents, quickNotes, todoList, city]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => window.clearInterval(id);
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
-    if (!swActive) return;
-    const id = window.setInterval(() => setSwTime((t) => t + 100), 100);
-    return () => window.clearInterval(id);
-  }, [swActive]);
+    if (!stopwatchRunning) return;
+    const t = setInterval(() => setStopwatchSec((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [stopwatchRunning]);
 
   useEffect(() => {
-    if (!timerActive) return;
-    const id = window.setInterval(() => {
-      setTimerLeft((prev) => {
-        if (prev <= 1) {
-          setTimerActive(false);
-          notify("Taymer vaqti tugadi!");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [timerActive]);
+    if (user) localStorage.setItem('vermix_user', JSON.stringify(user));
+    else localStorage.removeItem('vermix_user');
+  }, [user]);
 
-  // ============================================================================
-  // HYBRID MUSIC ENGINE (REAL HTML5 AUDIO FOR USER TRACKS + SYNTH FALLBACK)
-  // ============================================================================
+  useEffect(() => { localStorage.setItem('vermix_pins', JSON.stringify(pins)); }, [pins]);
+  useEffect(() => { localStorage.setItem('vermix_tracks', JSON.stringify(tracks)); }, [tracks]);
+  useEffect(() => { localStorage.setItem('vermix_videos', JSON.stringify(videos)); }, [videos]);
+  useEffect(() => { localStorage.setItem('vermix_chat', JSON.stringify(chatMessages)); }, [chatMessages]);
+  useEffect(() => { localStorage.setItem('vermix_events', JSON.stringify(events)); }, [events]);
+  useEffect(() => { localStorage.setItem('vermix_notes', noteText); }, [noteText]);
+  useEffect(() => { localStorage.setItem('vermix_todos', JSON.stringify(todos)); }, [todos]);
+  useEffect(() => { localStorage.setItem('vermix_bookmarks', JSON.stringify(bookmarks)); }, [bookmarks]);
+
+  // Real Supabase Auth Session Listener
   useEffect(() => {
-    const audioEl = htmlAudioRef.current;
-    if (audioEl) {
-      audioEl.volume = muted ? 0 : volume;
-    }
-  }, [volume, muted]);
+    if (!supabase) return;
 
-  useEffect(() => {
-    const audioEl = htmlAudioRef.current;
-
-    if (currentTrack.audioUrl && audioEl) {
-      if (audioEl.src !== currentTrack.audioUrl) {
-        audioEl.src = currentTrack.audioUrl;
-      }
-      if (isPlaying) {
-        audioEl.play().catch(() => {
-          setIsPlaying(false);
-          notify("Audio faylni ijro etish uchun pleyer tugmasini bosing");
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const u = session.user;
+        setUser({
+          id: u.id,
+          name: u.user_metadata?.full_name || u.user_metadata?.name || u.phone || u.email?.split('@')[0] || 'Foydalanuvchi',
+          email: u.email || '',
+          phone: u.phone || '',
+          avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || '',
+          provider: u.phone ? 'phone' : 'google',
         });
-      } else {
-        audioEl.pause();
       }
-      return;
-    }
+    });
 
-    if (audioEl) {
-      audioEl.pause();
-    }
-
-    if (!isPlaying) return;
-
-    const tick = window.setInterval(() => {
-      setProgressSec((p) => {
-        if (p + 1 >= currentTrack.durationSec) {
-          playNextTrack();
-          return 0;
-        }
-        return p + 1;
-      });
-    }, 1000);
-
-    const playAmbientNote = () => {
-      try {
-        const Ctx =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (!Ctx) return;
-        if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
-        const ctx = audioCtxRef.current;
-        if (ctx.state === "suspended") ctx.resume().catch(() => {});
-        const gainVal = muted ? 0 : volume * 0.07;
-        if (gainVal <= 0) return;
-
-        const ratios = [1, 1.25, 1.5, 1.875];
-        const freq = currentTrack.baseFreq * ratios[Math.floor(Math.random() * ratios.length)];
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(freq, ctx.currentTime);
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(gainVal, ctx.currentTime + 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.1);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 1.15);
-      } catch {
-        // Ignore browser autoplay restrictions
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        setUser({
+          id: u.id,
+          name: u.user_metadata?.full_name || u.user_metadata?.name || u.phone || u.email?.split('@')[0] || 'Foydalanuvchi',
+          email: u.email || '',
+          phone: u.phone || '',
+          avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || '',
+          provider: u.phone ? 'phone' : 'google',
+        });
+        setAuthModalOpen(false);
       }
-    };
-
-    playAmbientNote();
-    const synthTimer = window.setInterval(playAmbientNote, 1300);
-
-    return () => {
-      window.clearInterval(tick);
-      window.clearInterval(synthTimer);
-    };
-  }, [isPlaying, currentTrack, volume, muted]);
-
-  const selectTrack = (track: TrackItem) => {
-    setCurrentTrack(track);
-    setProgressSec(0);
-    setIsPlaying(true);
-  };
-
-  const playNextTrack = () => {
-    const idx = tracks.findIndex((t) => t.id === currentTrack.id);
-    const next = tracks[(idx + 1) % tracks.length];
-    selectTrack(next);
-  };
-
-  const playPrevTrack = () => {
-    const idx = tracks.findIndex((t) => t.id === currentTrack.id);
-    const prev = tracks[(idx - 1 + tracks.length) % tracks.length];
-    selectTrack(prev);
-  };
-
-  const formatSec = (sec: number) => {
-    const safe = Math.max(0, Math.floor(sec));
-    const m = Math.floor(safe / 60);
-    const s = safe % 60;
-    return `${m}:${String(s).padStart(2, "0")}`;
-  };
-
-  // ============================================================================
-  // CUSTOM MUSIC UPLOAD HANDLERS
-  // ============================================================================
-  const handleLocalAudioFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setCustomFileError("");
-    const blobUrl = URL.createObjectURL(file);
-    const cleanName = file.name.replace(/\.[^/.]+$/, "");
-    const newTrack: TrackItem = {
-      id: `custom-${Date.now()}`,
-      title: customTrackTitle.trim() || cleanName,
-      artist: customTrackArtist.trim() || auth.name || "Mening musiqam",
-      album: "Shaxsiy yuklama",
-      category: "Mening musiqalarim",
-      durationSec: 180,
-      coverUrl:
-        customTrackCover.trim() ||
-        "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80",
-      audioUrl: blobUrl,
-      baseFreq: 261.63,
-      isCustom: true
-    };
-    setTracks((prev) => [newTrack, ...prev]);
-    selectTrack(newTrack);
-    setAddMusicOpen(false);
-    setCustomTrackTitle("");
-    setCustomTrackArtist("");
-    setCustomTrackUrl("");
-    setCustomTrackCover("");
-    notify(`"${newTrack.title}" pleylistga qo'shildi va ijro etilmoqda`);
-    e.target.value = "";
-  };
-
-  const handleAddCustomAudioUrl = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCustomFileError("");
-    if (!customTrackTitle.trim() || !customTrackUrl.trim()) {
-      setCustomFileError("Qo'shiq nomi va to'g'ridan-to'g'ri audio havolani (MP3/WAV) kiriting.");
-      return;
-    }
-    const newTrack: TrackItem = {
-      id: `custom-${Date.now()}`,
-      title: customTrackTitle.trim(),
-      artist: customTrackArtist.trim() || "Shaxsiy ijrochi",
-      album: "Onlayn audio",
-      category: "Mening musiqalarim",
-      durationSec: 200,
-      coverUrl:
-        customTrackCover.trim() ||
-        "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=400&q=80",
-      audioUrl: customTrackUrl.trim(),
-      baseFreq: 293.66,
-      isCustom: true
-    };
-    setTracks((prev) => [newTrack, ...prev]);
-    selectTrack(newTrack);
-    setAddMusicOpen(false);
-    setCustomTrackTitle("");
-    setCustomTrackArtist("");
-    setCustomTrackUrl("");
-    setCustomTrackCover("");
-    notify("Yangi musiqa muvaffaqiyatli qo'shildi!");
-  };
-
-  // ============================================================================
-  // GOOGLE & +998 PHONE AUTHENTICATION HANDLERS
-  // ============================================================================
-  const handleGoogleAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    const email = googleEmailInput.trim();
-    if (!email || !email.includes("@")) {
-      setAuthError("Iltimos, to'g'ri Google Gmail manzilini kiriting.");
-      return;
-    }
-    const displayName = googleNameInput.trim() || email.split("@")[0];
-    setAuth({
-      isAuthenticated: true,
-      provider: "google",
-      name: displayName,
-      identifier: email,
-      avatarLetter: displayName.charAt(0).toUpperCase()
     });
-    setAuthModalOpen(false);
-    setGoogleEmailInput("");
-    setGoogleNameInput("");
-    notify(`Google orqali muvaffaqiyatli kirdingiz: ${displayName}`);
-  };
 
-  const handleSendOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    const digits = phoneInput.replace(/\D/g, "");
-    if (digits.length < 9) {
-      setAuthError("Telefon raqamni to'liq kiriting (masalan: +998 90 123 45 67).");
-      return;
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Audio playback sync
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.volume = muted ? 0 : volume;
+    if (isPlaying) {
+      audioRef.current.play().catch(() => setIsPlaying(false));
+    } else {
+      audioRef.current.pause();
     }
-    const code = String(Math.floor(1000 + Math.random() * 9000));
-    setDemoOtpCode(code);
-    setOtpSent(true);
-    notify(`SMS tasdiqlash kodi yuborildi (Demo kod: ${code})`);
+  }, [isPlaying, currentTrackIndex, volume, muted]);
+
+  // --- HELPERS ---
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    if (otpInput.trim() !== demoOtpCode && otpInput.trim() !== "1234") {
-      setAuthError(`Noto'g'ri kod. Yuborilgan kodni kiriting (${demoOtpCode}).`);
-      return;
-    }
-    const formattedPhone = phoneInput.trim();
-    setAuth({
-      isAuthenticated: true,
-      provider: "phone",
-      name: "VerMix Abonenti",
-      identifier: formattedPhone,
-      avatarLetter: "U"
-    });
-    setAuthModalOpen(false);
-    setOtpSent(false);
-    setOtpInput("");
-    notify(`Telefon raqam tasdiqlandi: ${formattedPhone}`);
+  const copyText = (text: string, label?: string) => {
+    navigator.clipboard.writeText(text);
+    showToast(`${label || text} nusxalandi!`);
   };
 
-  // ============================================================================
-  // BOOKMARK HELPER
-  // ============================================================================
-  const isSaved = (id: string) => bookmarks.some((b) => b.id === id);
+  const navigateTo = (id: SectionId) => {
+    setActiveSection(id);
+    setSidebarOpen(false);
+    setRecentSections((prev) => [id, ...prev.filter((x) => x !== id)].slice(0, 5));
+  };
 
-  const toggleSaveBookmark = (item: SavedBookmark) => {
+  const toggleBookmark = (item: BookmarkItem) => {
     setBookmarks((prev) => {
-      if (prev.some((b) => b.id === item.id)) {
-        notify("Saqlanganlardan olib tashlandi");
-        return prev.filter((b) => b.id !== item.id);
+      const exists = prev.some((b) => b.title === item.title);
+      if (exists) {
+        showToast('Saqlanganlardan olib tashlandi');
+        return prev.filter((b) => b.title !== item.title);
       }
-      notify("Saqlanganlarga qo'shildi");
+      showToast('Saqlanganlarga qo‘shildi!');
       return [item, ...prev];
     });
   };
 
-  // ============================================================================
-  // SOCIAL VIDEO URL PARSER
-  // ============================================================================
-  const handleAddSocialVideo = (e: React.FormEvent) => {
-    e.preventDefault();
-    setVideoErr("");
-    const url = videoInputUrl.trim();
-    if (!url) return;
-
-    const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,15})/);
-    if (yt && yt[1]) {
-      const entry: SocialVideoItem = {
-        id: `vid-${Date.now()}`,
-        platform: "YouTube",
-        title: `YouTube Video (${yt[1]})`,
-        author: "YouTube Rasmiy Pleyer",
-        originalUrl: url,
-        embedUrl: `https://www.youtube.com/embed/${yt[1]}`,
-        addedAt: "Hozirgina"
-      };
-      setVideos((prev) => [entry, ...prev]);
-      setActiveVideo(entry);
-      setVideoInputUrl("");
-      notify("YouTube videosi ochildi");
+  // --- REAL SUPABASE AUTH HANDLERS ---
+  const handleGoogleLogin = async () => {
+    setAuthError(null);
+    if (!supabase) {
+      setAuthError('Supabase ulanmagan: Railway Variables bo‘limida VITE_SUPABASE_URL va VITE_SUPABASE_ANON_KEY kiritilganini tekshiring.');
       return;
     }
-
-    const ig = url.match(/instagram\.com\/(?:p|reel|reels)\/([a-zA-Z0-9_-]+)/);
-    if (ig && ig[1]) {
-      const entry: SocialVideoItem = {
-        id: `vid-${Date.now()}`,
-        platform: "Instagram",
-        title: `Instagram Reel / Post (${ig[1]})`,
-        author: "Instagram Rasmiy Embed",
-        originalUrl: url,
-        embedUrl: `https://www.instagram.com/p/${ig[1]}/embed/`,
-        addedAt: "Hozirgina"
-      };
-      setVideos((prev) => [entry, ...prev]);
-      setActiveVideo(entry);
-      setVideoInputUrl("");
-      notify("Instagram videosi ochildi");
-      return;
+    setAuthLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    setAuthLoading(false);
+    if (error) {
+      setAuthError('Google orqali kirishda xatolik: ' + error.message);
     }
-
-    const tt = url.match(/tiktok\.com\/.*\/video\/(\d+)/);
-    if (tt && tt[1]) {
-      const entry: SocialVideoItem = {
-        id: `vid-${Date.now()}`,
-        platform: "TikTok",
-        title: `TikTok Video (${tt[1]})`,
-        author: "TikTok Rasmiy Pleyer",
-        originalUrl: url,
-        embedUrl: `https://www.tiktok.com/embed/v2/${tt[1]}`,
-        addedAt: "Hozirgina"
-      };
-      setVideos((prev) => [entry, ...prev]);
-      setActiveVideo(entry);
-      setVideoInputUrl("");
-      notify("TikTok videosi ochildi");
-      return;
-    }
-
-    setVideoErr("To'g'ri YouTube, Instagram (Reels/Post) yoki TikTok ochiq havolasini kiriting.");
   };
 
-  // ============================================================================
-  // AI ASSISTANT HANDLER
-  // ============================================================================
-  const currentThread = useMemo(
-    () => threads.find((t) => t.id === activeThreadId) || threads[0],
-    [threads, activeThreadId]
-  );
+  const handleSendOtp = async () => {
+    setAuthError(null);
+    const digits = phoneInput.replace(/\D/g, '');
+    if (digits.length !== 9) {
+      setAuthError('Iltimos, 9 xonali telefon raqamingizni kiriting (masalan: 90 123 45 67).');
+      return;
+    }
+    const fullPhone = `+998${digits}`;
+    if (!supabase) {
+      setAuthError('Supabase ulanmagan! Railway Variables bo‘limini tekshiring.');
+      return;
+    }
+    setAuthLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: fullPhone,
+    });
+    setAuthLoading(false);
+    if (error) {
+      setAuthError(`SMS yuborishda xatolik: ${error.message}. (Supabase Dashboard → Authentication → Providers → Phone va SMS provayder yoqilganini tekshiring).`);
+    } else {
+      setOtpSent(true);
+      showToast(`${fullPhone} raqamiga tasdiqlash kodi yuborildi!`);
+    }
+  };
 
-  const sendAiMessage = async (e: React.FormEvent) => {
+  const handleVerifyOtp = async () => {
+    setAuthError(null);
+    const digits = phoneInput.replace(/\D/g, '');
+    const fullPhone = `+998${digits}`;
+    if (otpCode.trim().length < 4) {
+      setAuthError('Telefoningizga kelgan SMS kodni kiriting.');
+      return;
+    }
+    if (!supabase) return;
+    setAuthLoading(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone: fullPhone,
+      token: otpCode.trim(),
+      type: 'sms',
+    });
+    setAuthLoading(false);
+    if (error) {
+      setAuthError('Kod noto‘g‘ri yoki muddati tugagan: ' + error.message);
+    } else if (data.user) {
+      setUser({
+        id: data.user.id,
+        name: data.user.user_metadata?.full_name || fullPhone,
+        email: data.user.email || '',
+        phone: fullPhone,
+        avatar: '',
+        provider: 'phone',
+      });
+      setAuthModalOpen(false);
+      setOtpSent(false);
+      setOtpCode('');
+      showToast('Telefon raqami orqali muvaffaqiyatli kirdingiz!');
+    }
+  };
+
+  const handleLogout = async () => {
+    if (supabase) await supabase.auth.signOut();
+    setUser(null);
+    showToast('Tizimdan chiqdingiz');
+  };
+
+  // --- MUSIC HANDLERS ---
+  const handleCustomAudioFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    setCustomAudioUrl(objectUrl);
+    if (!customTitle) setCustomTitle(file.name.replace(/\.[^/.]+$/, ''));
+  };
+
+  const handleAddCustomTrack = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!aiPrompt.trim() || aiBusy) return;
-    const promptText = aiPrompt.trim();
-    const nowLabel = new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
-    const targetId = currentThread.id;
+    if (!customTitle.trim() || !customAudioUrl.trim()) {
+      showToast('Qo‘shiq nomi va audio fayl/havola kiritilishi shart!');
+      return;
+    }
+    const newTrack: TrackItem = {
+      id: `custom-${Date.now()}`,
+      title: customTitle.trim(),
+      artist: customArtist.trim() || (user?.name || 'Shaxsiy ijrochi'),
+      album: 'Mening musiqalarim',
+      category: 'Shaxsiy',
+      cover: customCoverUrl.trim() || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&w=400&q=80',
+      audioUrl: customAudioUrl.trim(),
+      duration: 'Audio',
+      isCustom: true,
+    };
+    setTracks((prev) => [newTrack, ...prev]);
+    setCurrentTrackIndex(0);
+    setIsPlaying(true);
+    setAddMusicModal(false);
+    setCustomTitle('');
+    setCustomArtist('');
+    setCustomAudioUrl('');
+    setCustomCoverUrl('');
+    showToast('Musiqa qo‘shildi va ijro etilmoqda!');
+  };
 
-    setThreads((prev) =>
-      prev.map((th) =>
-        th.id === targetId
-          ? {
-              ...th,
-              title: th.messages.length <= 1 ? promptText.slice(0, 30) : th.title,
-              messages: [
-                ...th.messages,
-                { id: `u-${Date.now()}`, role: "user", text: promptText, time: nowLabel }
-              ]
-            }
-          : th
-      )
-    );
-    setAiPrompt("");
-    setAiBusy(true);
+  // --- VIDEO EMBED HANDLER ---
+  const handleAddVideo = (e: React.FormEvent) => {
+    e.preventDefault();
+    setVideoError(null);
+    const parsed = parseVideoEmbed(videoUrlInput);
+    if (!parsed) {
+      setVideoError('Noto‘g‘ri havola! Faqat YouTube, Instagram (Post/Reels) yoki TikTok video havolasini kiriting.');
+      return;
+    }
+    const item: VideoItem = {
+      id: `vid-${Date.now()}`,
+      platform: parsed.platform,
+      originalUrl: videoUrlInput.trim(),
+      embedUrl: parsed.embedUrl,
+      title: `${parsed.platform} Video (${new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })})`,
+      addedAt: 'Hozirgina',
+    };
+    setVideos((prev) => [item, ...prev]);
+    setActiveVideo(item);
+    setVideoUrlInput('');
+    showToast(`${parsed.platform} videosi aniqlandi!`);
+  };
+
+  // --- AI ASSISTANT HANDLER (Backend API + Fallback) ---
+  const handleSendAiMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const promptText = chatInput.trim();
+    if (!promptText && !uploadedFileText) return;
+
+    const fullUserPrompt = uploadedFileText
+      ? `${promptText || 'Ushbu faylni tahlil qilib ber:'}\n\n[Biriktirilgan fayl: ${uploadedFileName}]\n${uploadedFileText.slice(0, 3000)}`
+      : promptText;
+
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      content: promptText || `Fayl yuklandi: ${uploadedFileName}`,
+      timestamp: new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
+      attachmentName: uploadedFileName || undefined,
+    };
+
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput('');
+    setUploadedFileName(null);
+    setUploadedFileText('');
+    setAiThinking(true);
 
     try {
-      const apiKey = "";
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Siz VerMix platformasining o'zbek tilidagi aqlli AI yordamchisisiz. Aniq, tushunarli va foydali javob bering.\n\nSavol: ${promptText}`
-                }
-              ]
-            }
-          ]
-        })
+          message: fullUserPrompt,
+          history: chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+        }),
       });
-      if (!res.ok) throw new Error("API error");
-      const json = await res.json();
-      const reply =
-        json?.candidates?.[0]?.content?.parts?.[0]?.text ||
-        `"${promptText}" bo'yicha VerMix AI tahlili tayyor. Batafsil ma'lumot uchun savolni aniqlashtirishingiz mumkin.`;
-      setThreads((prev) =>
-        prev.map((th) =>
-          th.id === targetId
-            ? {
-                ...th,
-                messages: [
-                  ...th.messages,
-                  { id: `b-${Date.now()}`, role: "assistant", text: reply, time: nowLabel }
-                ]
-              }
-            : th
-        )
-      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `a-${Date.now()}`,
+            role: 'assistant',
+            content: data.reply,
+            timestamp: new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      } else {
+        throw new Error('Backend javob bermadi');
+      }
     } catch {
-      const fallbackReply = `VerMix AI Javobi:\n\nSizning "${promptText}" so'rovingiz qabul qilindi. Platformadagi Kompyuterlar, Smartfonlar, Mobil Operatorlar USSD kodlari yoki Foydali Vositalar bo'limlaridan ham tezkor ma'lumot olishingiz mumkin.`;
-      setThreads((prev) =>
-        prev.map((th) =>
-          th.id === targetId
-            ? {
-                ...th,
-                messages: [
-                  ...th.messages,
-                  { id: `b-${Date.now()}`, role: "assistant", text: fallbackReply, time: nowLabel }
-                ]
-              }
-            : th
-        )
-      );
-    } finally {
-      setAiBusy(false);
-    }
-  };
-
-  // ============================================================================
-  // GLOBAL SEARCH RESULTS
-  // ============================================================================
-  const globalMatches = useMemo(() => {
-    const q = globalSearch.trim().toLowerCase();
-    if (!q) return [];
-    const list: { title: string; subtitle: string; badge: string; section: SectionKey }[] = [];
-
-    COMPUTERS_CATALOG.forEach((c) => {
-      if (`${c.brand} ${c.model} ${c.cpu}`.toLowerCase().includes(q)) {
-        list.push({ title: c.model, subtitle: `${c.brand} • ${c.priceRange}`, badge: "Kompyuter", section: "computers" });
-      }
-    });
-    SMARTPHONES_CATALOG.forEach((p) => {
-      if (`${p.brand} ${p.model} ${p.processor}`.toLowerCase().includes(q)) {
-        list.push({ title: p.model, subtitle: `${p.brand} • ${p.price}`, badge: "Smartfon", section: "smartphones" });
-      }
-    });
-    OPERATORS_UZ.forEach((op) => {
-      if (op.name.toLowerCase().includes(q) || op.ussdList.some((u) => u.code.includes(q))) {
-        list.push({ title: op.name, subtitle: `Balans: ${op.balanceUssd}`, badge: "Operator", section: "operators" });
-      }
-    });
-    DIRECTORY_LIST.forEach((d) => {
-      if (`${d.name} ${d.phone} ${d.category}`.toLowerCase().includes(q)) {
-        list.push({ title: d.name, subtitle: d.phone, badge: "Ma'lumotnoma", section: "directory" });
-      }
-    });
-    tracks.forEach((t) => {
-      if (`${t.title} ${t.artist}`.toLowerCase().includes(q)) {
-        list.push({ title: t.title, subtitle: t.artist, badge: "Musiqa", section: "music" });
-      }
-    });
-
-    return list.slice(0, 8);
-  }, [globalSearch, tracks]);
-
-  // ============================================================================
-  // PRODUCTIVITY CALCULATORS
-  // ============================================================================
-  const pressCalc = (key: string) => {
-    if (key === "C") {
-      setCalcExpr("0");
-      return;
-    }
-    if (key === "DEL") {
-      setCalcExpr((prev) => (prev.length > 1 ? prev.slice(0, -1) : "0"));
-      return;
-    }
-    if (key === "sin") {
-      const n = parseFloat(calcExpr) || 0;
-      setCalcExpr(String(Number(Math.sin((n * Math.PI) / 180).toFixed(6))));
-      return;
-    }
-    if (key === "cos") {
-      const n = parseFloat(calcExpr) || 0;
-      setCalcExpr(String(Number(Math.cos((n * Math.PI) / 180).toFixed(6))));
-      return;
-    }
-    if (key === "sqrt") {
-      const n = parseFloat(calcExpr) || 0;
-      setCalcExpr(n >= 0 ? String(Number(Math.sqrt(n).toFixed(6))) : "Xato");
-      return;
-    }
-    if (key === "=") {
-      try {
-        const clean = calcExpr.replace(/[^0-9+\-*/.()]/g, "");
-        if (!clean) return;
-        const val = Function(`"use strict"; return (${clean})`)();
-        setCalcExpr(Number.isFinite(val) ? String(Number(val.toFixed(6))) : "Xato");
-      } catch {
-        setCalcExpr("Xato");
-      }
-      return;
-    }
-    setCalcExpr((prev) => (prev === "0" || prev === "Xato" ? key : prev + key));
-  };
-
-  const ratesToUzs: Record<string, number> = {
-    UZS: 1,
-    USD: 12850,
-    EUR: 13920,
-    RUB: 134,
-    GBP: 16350
-  };
-
-  const convertedCurr = useMemo(() => {
-    const num = parseFloat(currVal) || 0;
-    const uzs = num * (ratesToUzs[currFrom] || 1);
-    return (uzs / (ratesToUzs[currTo] || 1)).toLocaleString("en-US", { maximumFractionDigits: 2 });
-  }, [currVal, currFrom, currTo]);
-
-  const convertedUnitVal = useMemo(() => {
-    const v = parseFloat(unitNum) || 0;
-    if (unitKind === "length") {
-      const mMap: Record<string, number> = { m: 1, km: 1000, cm: 0.01, mile: 1609.34 };
-      return ((v * (mMap[unitFrom] || 1)) / (mMap[unitTo] || 1)).toFixed(4);
-    }
-    if (unitKind === "weight") {
-      const kgMap: Record<string, number> = { kg: 1, g: 0.001, ton: 1000, lb: 0.453592 };
-      return ((v * (kgMap[unitFrom] || 1)) / (kgMap[unitTo] || 1)).toFixed(4);
-    }
-    let c = v;
-    if (unitFrom === "F") c = ((v - 32) * 5) / 9;
-    if (unitFrom === "K") c = v - 273.15;
-    if (unitTo === "F") return ((c * 9) / 5 + 32).toFixed(2);
-    if (unitTo === "K") return (c + 273.15).toFixed(2);
-    return c.toFixed(2);
-  }, [unitKind, unitNum, unitFrom, unitTo]);
-
-  // ============================================================================
-  // CALENDAR GRID DAYS
-  // ============================================================================
-  const monthGridCells = useMemo(() => {
-    const y = monthCursor.getFullYear();
-    const m = monthCursor.getMonth();
-    const first = new Date(y, m, 1).getDay();
-    const offset = first === 0 ? 6 : first - 1;
-    const totalDays = new Date(y, m + 1, 0).getDate();
-    const arr: (string | null)[] = [];
-    for (let i = 0; i < offset; i++) arr.push(null);
-    for (let d = 1; d <= totalDays; d++) {
-      arr.push(`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
-    }
-    return arr;
-  }, [monthCursor]);
-
-  const handleSaveCalEvent = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!evTitle.trim()) return;
-    if (editEventId) {
-      setCalEvents((prev) =>
-        prev.map((item) =>
-          item.id === editEventId
-            ? { ...item, title: evTitle.trim(), date: selectedDate, time: evTime, category: evCategory, color: evColor, notes: evNotes }
-            : item
-        )
-      );
-      setEditEventId(null);
-      notify("Tadbir yangilandi");
-    } else {
-      setCalEvents((prev) => [
+      // Offline / Static preview fallback
+      const fallbackReply = `**VerMix AI (Lokal rejim):** Savolingiz qabul qilindi: *"${promptText}"*.\n\nJonli Gemini 2.5 javoblarini olish uchun Railway serveringizda \`npx tsx server/index.ts\` ishlayotganini va \`GEMINI_API_KEY\` kiritilganini tekshiring.`;
+      setChatMessages((prev) => [
+        ...prev,
         {
-          id: `cal-${Date.now()}`,
-          title: evTitle.trim(),
-          date: selectedDate,
-          time: evTime,
-          category: evCategory,
-          color: evColor,
-          notes: evNotes
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          content: fallbackReply,
+          timestamp: new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
         },
-        ...prev
       ]);
-      notify("Yangi tadbir qo'shildi");
+    } finally {
+      setAiThinking(false);
     }
-    setEvTitle("");
-    setEvNotes("");
   };
 
-  // ============================================================================
-  // THEME STYLES (PURE WHITE #FFFFFF DEFAULT)
-  // ============================================================================
-  const pageBg = darkMode ? "bg-slate-950 text-slate-100" : "bg-[#FFFFFF] text-slate-900";
-  const sidebarBg = darkMode ? "bg-slate-900 border-slate-800" : "bg-[#F8FAFC] border-slate-200/80";
-  const cardBg = darkMode ? "bg-slate-900 border-slate-800" : "bg-[#FFFFFF] border-slate-200/80";
-  const subtleBg = darkMode ? "bg-slate-800/70" : "bg-[#F8FAFC]";
-  const mutedText = darkMode ? "text-slate-400" : "text-slate-500";
+  // --- NAVIGATION ITEMS ---
+  const NAV_ITEMS: { id: SectionId; label: string; icon: React.ElementType; badge?: string }[] = [
+    { id: 'home', label: 'Bosh sahifa', icon: Home },
+    { id: 'pinterest', label: 'Pinterest', icon: ImageIcon },
+    { id: 'music', label: 'Musiqa', icon: Music },
+    { id: 'videos', label: 'Videolar', icon: Video },
+    { id: 'computers', label: 'Kompyuterlar', icon: Laptop },
+    { id: 'smartphones', label: 'Smartfonlar', icon: Smartphone },
+    { id: 'ai-assistant', label: 'AI Yordamchi', icon: Bot, badge: 'AI' },
+    { id: 'calendar', label: 'Kalendar', icon: CalendarIcon },
+    { id: 'operators', label: 'Mobil Operatorlar', icon: PhoneCall },
+    { id: 'directory', label: 'Telefon Ma’lumotnomasi', icon: BookOpen },
+    { id: 'news', label: 'Yangiliklar', icon: Newspaper },
+    { id: 'tools', label: 'Foydali Vositalar', icon: Wrench },
+    { id: 'ai-tools', label: 'AI Vositalar', icon: Sparkles },
+    { id: 'bookmarks', label: 'Saqlanganlar', icon: Bookmark },
+    { id: 'profile', label: 'Profil', icon: User },
+    { id: 'settings', label: 'Sozlamalar', icon: Settings },
+    { id: 'contact', label: 'Aloqa (@roz1matoff_me)', icon: MessageCircle },
+  ];
 
-  const cityWeather: Record<string, { temp: string; status: string; humidity: string }> = {
-    Samarqand: { temp: "15°C", status: "Ochiq osmon", humidity: "44%" },
-    Toshkent: { temp: "16°C", status: "Quyoshli", humidity: "41%" },
-    Buxoro: { temp: "18°C", status: "Musaffo havo", humidity: "34%" },
-    "Farg'ona": { temp: "15°C", status: "Yengil shabada", humidity: "49%" }
-  };
+  // Global search results
+  const q = globalQuery.trim().toLowerCase();
+  const globalMatches = q
+    ? [
+        ...COMPUTERS_DB.filter((c) => `${c.brand} ${c.model}`.toLowerCase().includes(q)).map((c) => ({
+          title: `${c.brand} ${c.model}`,
+          sub: `Kompyuter • ${c.price}`,
+          section: 'computers' as SectionId,
+        })),
+        ...PHONES_DB.filter((p) => `${p.brand} ${p.model}`.toLowerCase().includes(q)).map((p) => ({
+          title: `${p.brand} ${p.model}`,
+          sub: `Smartfon • ${p.price}`,
+          section: 'smartphones' as SectionId,
+        })),
+        ...UZ_DIRECTORY.filter((d) => `${d.name} ${d.phone} ${d.category}`.toLowerCase().includes(q)).map((d) => ({
+          title: `${d.name} (${d.phone})`,
+          sub: d.category,
+          section: 'directory' as SectionId,
+        })),
+        ...UZ_OPERATORS.filter((o) => o.name.toLowerCase().includes(q)).map((o) => ({
+          title: o.name,
+          sub: `Mobil operator • ${o.balanceCode}`,
+          section: 'operators' as SectionId,
+        })),
+      ].slice(0, 8)
+    : [];
 
-  const currentOp = OPERATORS_UZ.find((o) => o.id === selectedOpId) || OPERATORS_UZ[0];
+  const currentTrack = tracks[currentTrackIndex] || tracks[0];
 
-  // ============================================================================
-  // RENDER
-  // ============================================================================
   return (
-    <div className={`min-h-screen flex flex-col lg:flex-row transition-colors ${pageBg}`}>
-      {/* HIDDEN REAL HTML5 AUDIO ELEMENT FOR USER TRACKS */}
-      <audio
-        ref={htmlAudioRef}
-        onTimeUpdate={(e) => setProgressSec(Math.floor(e.currentTarget.currentTime))}
-        onLoadedMetadata={(e) => {
-          const dur = Math.floor(e.currentTarget.duration);
-          if (dur > 0) {
-            setTracks((prev) =>
-              prev.map((t) => (t.id === currentTrack.id ? { ...t, durationSec: dur } : t))
-            );
-            setCurrentTrack((prev) => ({ ...prev, durationSec: dur }));
-          }
-        }}
-        onEnded={playNextTrack}
-      />
-
-      {/* TOAST BANNER */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-xs font-semibold shadow-xl border border-slate-700">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toast}</span>
-        </div>
-      )}
-
-      {/* MOBILE DRAWER BACKDROP */}
-      {drawerOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-          onClick={() => setDrawerOpen(false)}
+    <div className={darkMode ? 'dark' : ''}>
+      <div className="min-h-screen bg-[#FFFFFF] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex transition-colors duration-200 font-sans">
+        {/* Hidden Audio Element */}
+        <audio
+          ref={audioRef}
+          src={currentTrack?.audioUrl}
+          onEnded={() => setCurrentTrackIndex((i) => (i + 1) % tracks.length)}
         />
-      )}
 
-      {/* LEFT SIDEBAR NAVIGATION (17 SECTIONS) */}
-      <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 border-r flex flex-col transition-transform duration-200 ${sidebarBg} ${
-          drawerOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
-      >
-        <div className="p-4 flex items-center justify-between border-b border-slate-200/70 dark:border-slate-800">
-          <button
-            onClick={() => setActiveSection("home")}
-            className="flex items-center gap-2.5 text-left"
-          >
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-extrabold flex items-center justify-center shadow-sm">
-              V
-            </div>
-            <div>
-              <div className="font-extrabold text-base leading-none">VerMix</div>
-              <div className={`text-[11px] mt-0.5 ${mutedText}`}>Raqamli Ekotizim</div>
-            </div>
-          </button>
-          <button
-            onClick={() => setDrawerOpen(false)}
-            className="lg:hidden p-1.5 rounded-xl hover:bg-slate-200/60"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        {/* Toast Notification */}
+        {toastMsg && (
+          <div className="fixed bottom-20 right-5 z-50 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-4 py-2.5 rounded-xl shadow-xl text-sm font-medium flex items-center gap-2 animate-bounce">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            {toastMsg}
+          </div>
+        )}
 
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {SIDEBAR_MENU.map((item) => {
-            const Icon = item.icon;
-            const active = activeSection === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id);
-                  setDrawerOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
-                  active
-                    ? "bg-slate-900 text-white dark:bg-blue-600 shadow-sm"
-                    : `hover:bg-slate-200/60 dark:hover:bg-slate-800 ${
-                        darkMode ? "text-slate-300" : "text-slate-700"
-                      }`
-                }`}
-              >
-                <span className="flex items-center gap-2.5 truncate">
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </span>
-                {item.id === "bookmarks" && bookmarks.length > 0 && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                      active ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {bookmarks.length}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Mobile Sidebar Backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/40 z-30 lg:hidden backdrop-blur-xs"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-        {/* TELEGRAM QUICK LINK IN SIDEBAR FOOTER */}
-        <div className="p-3 border-t border-slate-200/70 dark:border-slate-800">
-          <a
-            href="https://t.me/roz1matoff_me"
-            target="_blank"
-            rel="noreferrer"
-            className={`w-full p-2.5 rounded-2xl border flex items-center justify-between text-xs font-semibold hover:border-blue-500 transition ${cardBg}`}
-          >
-            <span className="flex items-center gap-2">
-              <Send className="w-3.5 h-3.5 text-sky-500" />
-              <span>@roz1matoff_me</span>
-            </span>
-            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-          </a>
-        </div>
-      </aside>
-
-      {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col min-w-0 pb-24">
-        {/* TOP HEADER */}
-        <header
-          className={`sticky top-0 z-30 border-b backdrop-blur-md px-4 lg:px-8 py-3 ${
-            darkMode ? "bg-slate-950/90 border-slate-800" : "bg-white/95 border-slate-200/80"
+        {/* SIDEBAR */}
+        <aside
+          className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 bg-[#F8F9FA] dark:bg-zinc-900 border-r border-zinc-200/80 dark:border-zinc-800 flex flex-col transition-transform duration-200 ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           }`}
         >
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          <div className="p-5 flex items-center justify-between border-b border-zinc-200/70 dark:border-zinc-800">
+            <button
+              onClick={() => navigateTo('home')}
+              className="flex items-center gap-2.5 text-left"
+            >
+              <div className="w-9 h-9 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center font-bold text-lg shadow-sm">
+                V
+              </div>
+              <div>
+                <span className="font-bold text-lg tracking-tight block leading-none">VerMix</span>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Raqamli Ekotizim</span>
+              </div>
+            </button>
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => navigateTo(item.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    active
+                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/70 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-3 truncate">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </span>
+                  {item.badge && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500 text-white">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* User Mini Card in Sidebar */}
+          <div className="p-3 border-t border-zinc-200/70 dark:border-zinc-800">
+            {user ? (
+              <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-zinc-800/80 border border-zinc-200/70 dark:border-zinc-700">
+                <button onClick={() => navigateTo('profile')} className="flex items-center gap-2.5 min-w-0 text-left">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-xs font-bold shrink-0">
+                      {user.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="truncate">
+                    <p className="text-xs font-semibold truncate">{user.name}</p>
+                    <p className="text-[10px] text-zinc-500 truncate">{user.phone || user.email}</p>
+                  </div>
+                </button>
+                <button onClick={handleLogout} title="Chiqish" className="p-1.5 text-zinc-400 hover:text-red-500">
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
               <button
-                onClick={() => setDrawerOpen(true)}
-                className="lg:hidden p-2 rounded-xl border border-slate-200 dark:border-slate-800"
-                aria-label="Menyu"
+                onClick={() => { setAuthError(null); setAuthModalOpen(true); }}
+                className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition"
+              >
+                <LogIn className="w-4 h-4" />
+                Google / Telefon orqali kirish
+              </button>
+            )}
+          </div>
+        </aside>
+
+        {/* MAIN CONTENT AREA */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* TOP HEADER */}
+          <header className="sticky top-0 z-20 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800 px-4 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1 max-w-xl relative">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 rounded-xl border border-zinc-200 dark:border-zinc-800"
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <span className="hidden sm:inline-block font-bold text-sm">
-                {SIDEBAR_MENU.find((m) => m.id === activeSection)?.label}
-              </span>
-            </div>
-
-            {/* GLOBAL SEARCH BAR */}
-            <div className="relative flex-1 max-w-xl">
-              <Search className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${mutedText}`} />
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && globalSearch.trim()) {
-                    const next = [globalSearch.trim(), ...searchHistory.filter((x) => x !== globalSearch.trim())].slice(0, 6);
-                    setSearchHistory(next);
-                    writeStorage("vermix_v2_search_hist", next);
-                  }
-                }}
-                placeholder="VerMix bo'ylab qidirish (MacBook, iPhone, *102#, 103, musiqa...)"
-                className={`w-full pl-10 pr-8 py-2 rounded-2xl border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 ${
-                  darkMode ? "bg-slate-900 border-slate-700 text-white" : "bg-[#F8FAFC] border-slate-200 text-slate-900"
-                }`}
-              />
-              {globalSearch && (
-                <button
-                  onClick={() => setGlobalSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-
-              {globalSearch.trim().length > 0 && (
-                <div className={`absolute left-0 right-0 mt-2 rounded-2xl border shadow-2xl z-50 overflow-hidden ${cardBg}`}>
-                  <div className={`px-3.5 py-2 text-[11px] font-bold border-b ${subtleBg} ${mutedText}`}>
-                    Topilgan natijalar ({globalMatches.length})
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={globalQuery}
+                  onChange={(e) => setGlobalQuery(e.target.value)}
+                  placeholder="VerMix bo‘ylab qidirish (qurilmalar, USSD, tashkilotlar...)"
+                  className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 focus:bg-white dark:focus:bg-zinc-950 text-sm outline-none transition"
+                />
+                {globalMatches.length > 0 && (
+                  <div className="absolute left-0 right-0 top-12 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-2 z-50">
+                    {globalMatches.map((m, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => { navigateTo(m.section); setGlobalQuery(''); }}
+                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-between"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{m.title}</p>
+                          <p className="text-xs text-zinc-500">{m.sub}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-zinc-400" />
+                      </button>
+                    ))}
                   </div>
-                  {globalMatches.length === 0 ? (
-                    <div className={`p-4 text-xs text-center ${mutedText}`}>
-                      Hech narsa topilmadi. AI Yordamchidan so'rab ko'ring!
-                    </div>
-                  ) : (
-                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                      {globalMatches.map((m, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            setActiveSection(m.section);
-                            setGlobalSearch("");
-                          }}
-                          className="w-full px-4 py-2.5 text-left hover:bg-blue-50/70 dark:hover:bg-slate-800 flex items-center justify-between gap-2"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-xs font-bold truncate">{m.title}</div>
-                            <div className={`text-[11px] truncate ${mutedText}`}>{m.subtitle}</div>
-                          </div>
-                          <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold shrink-0">
-                            {m.badge}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* RIGHT ACTION BUTTONS */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <button
-                onClick={() => setDarkMode((d) => !d)}
-                className={`p-2 rounded-xl border ${cardBg}`}
-                title="Mavzuni almashtirish"
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
+                title="Yorug‘ / Tungi rejim"
               >
-                {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+                {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
-
-              {auth.isAuthenticated ? (
+              {!user ? (
                 <button
-                  onClick={() => setActiveSection("profile")}
-                  className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold flex items-center gap-2"
+                  onClick={() => { setAuthError(null); setAuthModalOpen(true); }}
+                  className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold hover:opacity-90 transition"
                 >
-                  <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold">
-                    {auth.avatarLetter}
-                  </span>
-                  <span className="hidden sm:inline max-w-[110px] truncate">{auth.name}</span>
+                  Kirish
                 </button>
               ) : (
                 <button
-                  onClick={() => {
-                    setAuthError("");
-                    setAuthModalOpen(true);
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+                  onClick={() => navigateTo('profile')}
+                  className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold flex items-center gap-2"
                 >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Kirish</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  {user.name}
                 </button>
               )}
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* MAIN VIEWPORT */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
-          {/* ============================================================== */}
-          {/* 1. BOSH SAHIFA (DASHBOARD)                                     */}
-          {/* ============================================================== */}
-          {activeSection === "home" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className={`lg:col-span-2 p-6 rounded-3xl border shadow-sm flex flex-col justify-between ${subtleBg}`}>
-                  <div>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold mb-3">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      VerMix Shaxsiy Raqamli Ekotizim
-                    </span>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2">
-                      Assalomu alaykum, {auth.name}!
-                    </h2>
-                    <p className={`text-xs sm:text-sm max-w-xl ${mutedText}`}>
-                      Pinterest g'oyalari, o'z musiqangizni yuklash imkoniyati, ijtimoiy tarmoq videolari, kompyuter va smartfonlar bazasi, AI yordamchi hamda O'zbekiston ma'lumotnomasi bir joyda.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2.5 mt-5">
-                    <button
-                      onClick={() => setActiveSection("ai")}
-                      className="px-4 py-2.5 rounded-2xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold flex items-center gap-2"
-                    >
-                      <Bot className="w-4 h-4" />
-                      AI Yordamchi
-                    </button>
-                    <button
-                      onClick={() => setActiveSection("music")}
-                      className={`px-4 py-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 ${cardBg}`}
-                    >
-                      <Music className="w-4 h-4 text-blue-600" />
-                      Musiqa qo'shish
-                    </button>
-                    <button
-                      onClick={() => setActiveSection("contact")}
-                      className={`px-4 py-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 ${cardBg}`}
-                    >
-                      <Send className="w-4 h-4 text-sky-500" />
-                      Aloqa (@roz1matoff_me)
-                    </button>
-                  </div>
-                </div>
-
-                {/* WEATHER & CLOCK WIDGET */}
-                <div className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between ${cardBg}`}>
-                  <div className="flex items-center justify-between">
-                    <select
-                      value={city}
-                      onChange={(e) => setCity(e.target.value as typeof city)}
-                      className="text-xs font-bold bg-transparent focus:outline-none cursor-pointer"
-                    >
-                      <option value="Samarqand">Samarqand</option>
-                      <option value="Toshkent">Toshkent</option>
-                      <option value="Buxoro">Buxoro</option>
-                      <option value="Farg'ona">Farg'ona</option>
-                    </select>
-                    <CloudSun className="w-6 h-6 text-amber-500" />
-                  </div>
-                  <div className="my-3">
-                    <div className="text-3xl font-extrabold">{cityWeather[city].temp}</div>
-                    <div className={`text-xs ${mutedText}`}>
-                      {cityWeather[city].status} • Namlik {cityWeather[city].humidity}
+          {/* SECTION ROUTER */}
+          <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto pb-28">
+            {/* 1. HOME / DASHBOARD */}
+            {activeSection === 'home' && (
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 p-7 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-medium mb-4">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                        VerMix Shaxsiy Ekotizimi
+                      </span>
+                      <h1 className="text-2xl lg:text-3xl font-bold tracking-tight mb-2">
+                        Xush kelibsiz{user ? `, ${user.name}` : ''}!
+                      </h1>
+                      <p className="text-zinc-600 dark:text-zinc-400 text-sm max-w-xl">
+                        Musiqa, rasmlar, video pleyer, noutbuk va smartfonlar bazasi, AI yordamchi hamda O‘zbekiston mobil operatorlari USSD kodlari bitta platformada.
+                      </p>
+                    </div>
+                    <div className="mt-6 flex flex-wrap gap-2.5">
+                      <button onClick={() => navigateTo('ai-assistant')} className="px-4 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold flex items-center gap-2">
+                        <Bot className="w-4 h-4" /> AI Yordamchini ochish
+                      </button>
+                      <button onClick={() => navigateTo('operators')} className="px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-medium">
+                        USSD Kodlar
+                      </button>
+                      <button onClick={() => navigateTo('contact')} className="px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-medium">
+                        Aloqa (@roz1matoff_me)
+                      </button>
                     </div>
                   </div>
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                    <span className="font-mono font-bold text-sm">
-                      {currentTime.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                    </span>
-                    <span className={mutedText}>
-                      {currentTime.toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" })}
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              {/* QUICK ACCESS GRID */}
-              <div>
-                <h3 className="text-sm font-bold mb-3">Tezkor o'tish bo'limlari</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
-                  {SIDEBAR_MENU.filter((m) => m.id !== "home").map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveSection(item.id)}
-                        className={`p-3 rounded-2xl border text-left hover:shadow-md transition flex flex-col gap-2 ${cardBg}`}
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 flex items-center justify-center">
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <span className="text-xs font-semibold truncate">{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* FEATURED LAPTOPS & PHONES PREVIEW WITH IMAGES */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={`p-5 rounded-3xl border shadow-sm space-y-3 ${cardBg}`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold">Ommabop kompyuterlar</h3>
-                    <button
-                      onClick={() => setActiveSection("computers")}
-                      className="text-xs font-semibold text-blue-600 hover:underline"
-                    >
-                      Barchasi →
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {COMPUTERS_CATALOG.slice(0, 2).map((lap) => (
-                      <div
-                        key={lap.id}
-                        onClick={() => {
-                          setDetailLaptop(lap);
-                          setActiveSection("computers");
-                        }}
-                        className={`rounded-2xl overflow-hidden border cursor-pointer hover:shadow-sm transition ${subtleBg}`}
-                      >
-                        <img
-                          src={lap.imageUrl}
-                          alt={lap.model}
-                          onError={(e) => {
-                            e.currentTarget.src = LAPTOP_FALLBACK_SVG;
-                          }}
-                          className="w-full h-28 object-cover"
-                        />
-                        <div className="p-3">
-                          <div className="text-xs font-bold truncate">{lap.model}</div>
-                          <div className={`text-[11px] truncate ${mutedText}`}>{lap.priceRange}</div>
-                        </div>
+                  {/* Weather & Clock Widget */}
+                  <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex flex-col justify-between">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Samarqand / Toshkent</p>
+                        <p className="text-3xl font-bold mt-1">
+                          {now.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </p>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {now.toLocaleDateString('uz-UZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className={`p-5 rounded-3xl border shadow-sm space-y-3 ${cardBg}`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold">Ommabop smartfonlar</h3>
-                    <button
-                      onClick={() => setActiveSection("smartphones")}
-                      className="text-xs font-semibold text-blue-600 hover:underline"
-                    >
-                      Barchasi →
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {SMARTPHONES_CATALOG.slice(0, 2).map((ph) => (
-                      <div
-                        key={ph.id}
-                        onClick={() => {
-                          setDetailPhone(ph);
-                          setActiveSection("smartphones");
-                        }}
-                        className={`rounded-2xl overflow-hidden border cursor-pointer hover:shadow-sm transition ${subtleBg}`}
-                      >
-                        <img
-                          src={ph.imageUrl}
-                          alt={ph.model}
-                          onError={(e) => {
-                            e.currentTarget.src = PHONE_FALLBACK_SVG;
-                          }}
-                          className="w-full h-28 object-cover"
-                        />
-                        <div className="p-3">
-                          <div className="text-xs font-bold truncate">{ph.model}</div>
-                          <div className={`text-[11px] truncate ${mutedText}`}>{ph.price}</div>
-                        </div>
+                      <div className="p-3 rounded-2xl bg-white dark:bg-zinc-800 shadow-xs text-amber-500">
+                        <CloudSun className="w-7 h-7" />
                       </div>
-                    ))}
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between text-sm">
+                      <span className="text-zinc-500">Ob-havo: Ochiq</span>
+                      <span className="font-bold">+16°C • USD: {uzsRate.toLocaleString()} so‘m</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* ============================================================== */}
-          {/* 2. PINTEREST                                                   */}
-          {/* ============================================================== */}
-          {activeSection === "pinterest" && (
-            <div className="space-y-5">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Quick Access Grid */}
                 <div>
-                  <h2 className="text-xl font-extrabold">Pinterest — G'oyalar va Ilhom</h2>
-                  <p className={`text-xs ${mutedText}`}>
-                    Masonry panjarada rasmlarni kashf eting, shaxsiy doskalar yarating va saqlang.
-                  </p>
+                  <h2 className="text-lg font-bold mb-4">Tezkor bo‘limlar</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {[
+                      { id: 'pinterest', title: 'Pinterest', desc: 'Rasmlar galereyasi', icon: ImageIcon },
+                      { id: 'music', title: 'Musiqa', desc: 'Pleyer & yuklash', icon: Music },
+                      { id: 'videos', title: 'Videolar', desc: 'YT / IG / TikTok', icon: Video },
+                      { id: 'computers', title: 'Kompyuterlar', desc: '11 ta brend', icon: Laptop },
+                      { id: 'smartphones', title: 'Smartfonlar', desc: '13 ta brend', icon: Smartphone },
+                      { id: 'directory', title: 'Ma’lumotnoma', desc: '101, 102, 103, Banklar', icon: PhoneCall },
+                    ].map((card) => {
+                      const Icon = card.icon;
+                      return (
+                        <button
+                          key={card.id}
+                          onClick={() => navigateTo(card.id as SectionId)}
+                          className="p-4 rounded-2xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 text-left transition group"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 flex items-center justify-center mb-3 shadow-2xs group-hover:scale-105 transition">
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <p className="font-semibold text-sm">{card.title}</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">{card.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
+
+                {/* Daily Discovery */}
+                <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold flex items-center gap-2">
+                      <Compass className="w-5 h-5 text-blue-500" /> Kunlik Kashfiyotlar
+                    </h2>
+                    <span className="text-xs text-zinc-500">Har kuni yangilanadi</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800">
+                      <span className="text-[11px] font-semibold text-blue-600 uppercase">Foydali Fakt</span>
+                      <p className="font-semibold text-sm mt-1">Birinchi kompyuter sichqonchasi 1964-yilda yog‘ochdan yasalgan.</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800">
+                      <span className="text-[11px] font-semibold text-emerald-600 uppercase">Kun AI Vositasi</span>
+                      <p className="font-semibold text-sm mt-1">Perplexity AI — manbalar bilan aniq javob beruvchi qidiruv tizimi.</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800">
+                      <span className="text-[11px] font-semibold text-purple-600 uppercase">Tezkor USSD</span>
+                      <p className="font-semibold text-sm mt-1">Beeline balans: *102# • Ucell va Uzmobile balans: *100#</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 2. PINTEREST */}
+            {activeSection === 'pinterest' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold">Pinterest Vizual Kashfiyot</h1>
+                    <p className="text-sm text-zinc-500">G‘oyalar, dizayn va ilhomlantiruvchi rasmlar kolleksiyasi</p>
+                  </div>
+                  <button
+                    onClick={() => setNewPinModal(true)}
+                    className="px-4 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> Rasm qo‘shish
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {['Barchasi', 'Texnologiya', 'Dizayn', 'Sayohat', 'Arxitektura', 'Koinot', 'Hayot tarzi'].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setPinCategory(cat)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition ${
+                        pinCategory === cat
+                          ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                          : 'bg-[#F4F5F7] dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
                   <input
                     type="text"
                     value={pinSearch}
                     onChange={(e) => setPinSearch(e.target.value)}
-                    placeholder="G'oya qidirish..."
-                    className={`px-3.5 py-2 rounded-xl border text-xs ${cardBg}`}
+                    placeholder="Rasmlardan qidirish..."
+                    className="ml-auto px-3.5 py-1.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 text-sm outline-none"
                   />
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      value={newBoardTitle}
-                      onChange={(e) => setNewBoardTitle(e.target.value)}
-                      placeholder="Yangi doska..."
-                      className={`px-3 py-2 rounded-xl border text-xs ${cardBg}`}
-                    />
-                    <button
-                      onClick={() => {
-                        if (!newBoardTitle.trim()) return;
-                        setBoards((prev) => Array.from(new Set([...prev, newBoardTitle.trim()])));
-                        setNewBoardTitle("");
-                        notify("Shaxsiy doska yaratildi");
-                      }}
-                      className="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Doska
-                    </button>
-                  </div>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                {["Barchasi", "Texnologiya", "Sayohat", "Dizayn", "Interyer", "Sun'iy Intellekt", "Hayot tarzi"].map(
-                  (c) => (
-                    <button
-                      key={c}
-                      onClick={() => setPinCat(c)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                        pinCat === c ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  )
-                )}
-              </div>
-
-              <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
-                {pins
-                  .filter((p) => (pinCat === "Barchasi" ? true : p.category === pinCat))
-                  .filter((p) =>
-                    !pinSearch.trim() ? true : p.title.toLowerCase().includes(pinSearch.toLowerCase())
-                  )
-                  .map((pin) => {
-                    const liked = likedPins.includes(pin.id);
-                    const saved = isSaved(pin.id);
-                    return (
-                      <div
-                        key={pin.id}
-                        className={`break-inside-avoid rounded-3xl border overflow-hidden shadow-sm ${cardBg}`}
-                      >
-                        <div className="relative">
-                          <img
-                            src={pin.imageUrl}
-                            alt={pin.title}
-                            onError={(e) => {
-                              e.currentTarget.src = LAPTOP_FALLBACK_SVG;
-                            }}
-                            className={`w-full ${pin.heightClass} object-cover`}
-                          />
-                          <button
-                            onClick={() =>
-                              toggleSaveBookmark({
-                                id: pin.id,
-                                type: "Rasm",
-                                title: pin.title,
-                                subtitle: pin.category,
-                                section: "pinterest"
-                              })
-                            }
-                            className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-bold shadow ${
-                              saved ? "bg-rose-600 text-white" : "bg-slate-900/90 text-white"
-                            }`}
-                          >
-                            {saved ? "Saqlangan" : "Saqlash"}
-                          </button>
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <h4 className="font-bold text-xs">{pin.title}</h4>
-                          <div className="flex items-center justify-between text-xs">
-                            <select
-                              value={pin.board}
-                              onChange={(e) => {
-                                const b = e.target.value;
-                                setPins((prev) =>
-                                  prev.map((item) => (item.id === pin.id ? { ...item, board: b } : item))
-                                );
-                                notify(`"${b}" doskasiga o'tkazildi`);
-                              }}
-                              className={`px-2 py-1 rounded-lg text-[11px] ${subtleBg}`}
-                            >
-                              {boards.map((b) => (
-                                <option key={b} value={b}>
-                                  {b}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() =>
-                                setLikedPins((prev) =>
-                                  prev.includes(pin.id) ? prev.filter((x) => x !== pin.id) : [...prev, pin.id]
-                                )
-                              }
-                              className="flex items-center gap-1 font-bold"
-                            >
-                              <Heart className={`w-3.5 h-3.5 ${liked ? "fill-rose-500 text-rose-500" : ""}`} />
-                              <span>{pin.likes + (liked ? 1 : 0)}</span>
-                            </button>
+                <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+                  {pins
+                    .filter((p) => (pinCategory === 'Barchasi' || p.category === pinCategory) && p.title.toLowerCase().includes(pinSearch.toLowerCase()))
+                    .map((pin) => {
+                      const liked = likedPins.includes(pin.id);
+                      return (
+                        <div key={pin.id} className="break-inside-avoid rounded-2xl overflow-hidden bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800 group">
+                          <div className="relative">
+                            <img src={pin.image} alt={pin.title} className="w-full h-auto object-cover" />
+                            <div className="absolute top-2.5 right-2.5 flex gap-1.5">
+                              <button
+                                onClick={() => toggleBookmark({ id: pin.id, type: 'Rasm', title: pin.title, subtitle: pin.category, section: 'pinterest' })}
+                                className="p-2 rounded-full bg-white/90 text-zinc-900 shadow-sm hover:scale-105 transition"
+                                title="Saqlash"
+                              >
+                                <Bookmark className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="p-3.5">
+                            <p className="font-semibold text-sm">{pin.title}</p>
+                            <div className="flex items-center justify-between mt-2 text-xs text-zinc-500">
+                              <span>{pin.author} • {pin.board}</span>
+                              <button
+                                onClick={() => setLikedPins((prev) => liked ? prev.filter((x) => x !== pin.id) : [...prev, pin.id])}
+                                className={`flex items-center gap-1 font-medium ${liked ? 'text-red-500' : ''}`}
+                              >
+                                <Heart className={`w-3.5 h-3.5 ${liked ? 'fill-red-500' : ''}`} />
+                                {pin.likes + (liked ? 1 : 0)}
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-
-          {/* ============================================================== */}
-          {/* 3. MUSIQA (WITH USER UPLOAD & AUDIO URL MODAL)                 */}
-          {/* ============================================================== */}
-          {activeSection === "music" && (
-            <div className="space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold">Musiqa va Shaxsiy Pleylist</h2>
-                  <p className={`text-xs ${mutedText}`}>
-                    Musiqalarni tinglang yoki o'zingiz xohlagan MP3 fayl va havolalarni qo'shing.
-                  </p>
+                      );
+                    })}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={musicSearch}
-                    onChange={(e) => setMusicSearch(e.target.value)}
-                    placeholder="Qo'shiq yoki ijrochi..."
-                    className={`px-3.5 py-2 rounded-xl border text-xs ${cardBg}`}
-                  />
+              </div>
+            )}
+
+            {/* 3. MUSIC */}
+            {activeSection === 'music' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold">VerMix Musiqa</h1>
+                    <p className="text-sm text-zinc-500">Musiqalarni tinglang va o‘zingiz xohlagan audio fayl yoki havolani qo‘shing</p>
+                  </div>
                   <button
-                    onClick={() => {
-                      setCustomFileError("");
-                      setAddMusicOpen(true);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+                    onClick={() => setAddMusicModal(true)}
+                    className="px-4 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold flex items-center gap-2"
                   >
-                    <Plus className="w-4 h-4" />
-                    Musiqa qo'shish
+                    <Plus className="w-4 h-4" /> + Musiqa qo‘shish
                   </button>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                {["Barchasi", "Mening musiqalarim", "Sevimlilar", "Fokus va Ish", "Lo-Fi", "Milliy va Klassik"].map(
-                  (cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setMusicFilter(cat)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                        musicFilter === cat ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  )
-                )}
-              </div>
+                <input
+                  type="text"
+                  value={musicSearch}
+                  onChange={(e) => setMusicSearch(e.target.value)}
+                  placeholder="Qo‘shiq nomi yoki ijrochini qidirish..."
+                  className="w-full max-w-md px-4 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 text-sm outline-none"
+                />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {tracks
-                  .filter((t) => {
-                    if (musicFilter === "Sevimlilar") return favTracks.includes(t.id);
-                    if (musicFilter === "Mening musiqalarim") return Boolean(t.isCustom);
-                    if (musicFilter !== "Barchasi") return t.category === musicFilter;
-                    return true;
-                  })
-                  .filter((t) =>
-                    !musicSearch.trim()
-                      ? true
-                      : `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(musicSearch.toLowerCase())
-                  )
-                  .map((track) => {
-                    const active = currentTrack.id === track.id;
-                    const fav = favTracks.includes(track.id);
-                    return (
-                      <div key={track.id} className={`p-4 rounded-3xl border shadow-sm space-y-3 ${cardBg}`}>
-                        <div className="flex items-center gap-3.5">
-                          <div className="relative w-16 h-16 rounded-2xl overflow-hidden shrink-0">
-                            <img
-                              src={track.coverUrl}
-                              alt={track.title}
-                              onError={(e) => {
-                                e.currentTarget.src = LAPTOP_FALLBACK_SVG;
-                              }}
-                              className="w-full h-full object-cover"
-                            />
-                            <button
-                              onClick={() => (active ? setIsPlaying((p) => !p) : selectTrack(track))}
-                              className="absolute inset-0 bg-black/35 text-white flex items-center justify-center"
-                            >
-                              {active && isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
-                            </button>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold text-blue-600 uppercase">{track.category}</span>
-                              {track.isCustom && (
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold">
-                                  Shaxsiy
-                                </span>
-                              )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {tracks
+                    .filter((t) => `${t.title} ${t.artist}`.toLowerCase().includes(musicSearch.toLowerCase()))
+                    .map((track, idx) => {
+                      const active = currentTrack?.id === track.id;
+                      const fav = favoriteTracks.includes(track.id);
+                      return (
+                        <div
+                          key={track.id}
+                          className={`p-4 rounded-2xl border flex items-center justify-between gap-4 transition ${
+                            active
+                              ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-transparent shadow-md'
+                              : 'bg-[#F8F9FA] dark:bg-zinc-900 border-zinc-200/70 dark:border-zinc-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <img src={track.cover} alt={track.title} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-sm truncate">{track.title}</p>
+                                {track.isCustom && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-white font-semibold">Shaxsiy</span>
+                                )}
+                              </div>
+                              <p className={`text-xs truncate ${active ? 'opacity-80' : 'text-zinc-500'}`}>
+                                {track.artist} • {track.album}
+                              </p>
                             </div>
-                            <h3 className="font-bold text-sm truncate">{track.title}</h3>
-                            <p className={`text-xs truncate ${mutedText}`}>{track.artist}</p>
-                            <p className={`text-[11px] ${mutedText}`}>{formatSec(track.durationSec)}</p>
                           </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800">
-                          <button
-                            onClick={() => (active ? setIsPlaying((p) => !p) : selectTrack(track))}
-                            className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold flex items-center gap-1"
-                          >
-                            {active && isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                            <span>{active && isPlaying ? "Pauza" : "Tinglash"}</span>
-                          </button>
-
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2 shrink-0">
                             <button
-                              onClick={() =>
-                                setFavTracks((prev) =>
-                                  prev.includes(track.id) ? prev.filter((x) => x !== track.id) : [...prev, track.id]
-                                )
-                              }
-                              className={`p-2 rounded-xl border ${cardBg}`}
+                              onClick={() => setFavoriteTracks((prev) => fav ? prev.filter((x) => x !== track.id) : [...prev, track.id])}
+                              className="p-2 rounded-xl hover:bg-black/10"
                             >
-                              <Heart className={`w-3.5 h-3.5 ${fav ? "fill-rose-500 text-rose-500" : ""}`} />
+                              <Heart className={`w-4 h-4 ${fav ? 'fill-red-500 text-red-500' : ''}`} />
                             </button>
                             <button
-                              onClick={() =>
-                                toggleSaveBookmark({
-                                  id: track.id,
-                                  type: "Musiqa",
-                                  title: track.title,
-                                  subtitle: track.artist,
-                                  section: "music"
-                                })
-                              }
-                              className={`p-2 rounded-xl border ${cardBg}`}
+                              onClick={() => {
+                                setCurrentTrackIndex(idx);
+                                setIsPlaying(active ? !isPlaying : true);
+                              }}
+                              className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-sm"
                             >
-                              <Bookmark
-                                className={`w-3.5 h-3.5 ${isSaved(track.id) ? "fill-blue-600 text-blue-600" : ""}`}
-                              />
+                              {active && isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
                             </button>
-                            {track.isCustom && (
-                              <button
-                                onClick={() => {
-                                  setTracks((prev) => prev.filter((x) => x.id !== track.id));
-                                  notify("Shaxsiy musiqa o'chirildi");
-                                }}
-                                className={`p-2 rounded-xl border text-rose-600 ${cardBg}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-              </div>
-
-              {/* ADD CUSTOM MUSIC MODAL */}
-              {addMusicOpen && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                  <div className={`max-w-md w-full rounded-3xl border p-6 shadow-2xl space-y-4 ${cardBg}`}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-extrabold text-base">O'z musiqangizni qo'shish</h3>
-                      <button onClick={() => setAddMusicOpen(false)} className="p-1.5 rounded-xl hover:bg-slate-100">
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2.5 text-xs">
-                      <input
-                        type="text"
-                        value={customTrackTitle}
-                        onChange={(e) => setCustomTrackTitle(e.target.value)}
-                        placeholder="Qo'shiq nomi (ixtiyoriy, fayl nomidan olinadi)"
-                        className={`w-full px-3.5 py-2.5 rounded-xl border ${subtleBg}`}
-                      />
-                      <input
-                        type="text"
-                        value={customTrackArtist}
-                        onChange={(e) => setCustomTrackArtist(e.target.value)}
-                        placeholder="Ijrochi ismi"
-                        className={`w-full px-3.5 py-2.5 rounded-xl border ${subtleBg}`}
-                      />
-                      <input
-                        type="url"
-                        value={customTrackCover}
-                        onChange={(e) => setCustomTrackCover(e.target.value)}
-                        placeholder="Muqova rasmi URL (ixtiyoriy)"
-                        className={`w-full px-3.5 py-2.5 rounded-xl border ${subtleBg}`}
-                      />
-                    </div>
-
-                    <div className={`p-4 rounded-2xl border border-dashed text-center space-y-2 ${subtleBg}`}>
-                      <Upload className="w-6 h-6 mx-auto text-blue-600" />
-                      <div className="text-xs font-bold">1-usul: Qurilmadan audio fayl tanlash</div>
-                      <p className={`text-[11px] ${mutedText}`}>MP3, WAV, OGG yoki M4A formatdagi istalgan fayl</p>
-                      <label className="inline-block px-4 py-2 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold cursor-pointer">
-                        Fayl tanlash
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          onChange={handleLocalAudioFile}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-
-                    <form onSubmit={handleAddCustomAudioUrl} className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                      <div className="text-xs font-bold">2-usul: To'g'ridan-to'g'ri audio havola (URL)</div>
-                      <input
-                        type="url"
-                        value={customTrackUrl}
-                        onChange={(e) => setCustomTrackUrl(e.target.value)}
-                        placeholder="https://example.com/song.mp3"
-                        className={`w-full px-3.5 py-2.5 rounded-xl border text-xs ${subtleBg}`}
-                      />
-                      {customFileError && <p className="text-xs text-rose-600">{customFileError}</p>}
-                      <button
-                        type="submit"
-                        className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold"
-                      >
-                        Havola orqali qo'shish
-                      </button>
-                    </form>
-                  </div>
+                      );
+                    })}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* ============================================================== */}
-          {/* 4. VIDEOLAR (YOUTUBE, INSTAGRAM, TIKTOK EMBED)                 */}
-          {/* ============================================================== */}
-          {activeSection === "videos" && (
-            <div className="space-y-5">
-              <div className={`p-5 rounded-3xl border shadow-sm space-y-3 ${cardBg}`}>
-                <h2 className="text-xl font-extrabold">Ijtimoiy Tarmoq Video Pleyeri</h2>
-                <p className={`text-xs ${mutedText}`}>
-                  YouTube, Instagram (Reels/Post) yoki TikTok ochiq havolasini kiriting — rasmiy pleyer avtomatik ishga tushadi.
-                </p>
-                <form onSubmit={handleAddSocialVideo} className="flex flex-col sm:flex-row gap-2.5">
+            {/* 4. SOCIAL MEDIA VIDEO PLAYER */}
+            {activeSection === 'videos' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-2xl font-bold">Ijtimoiy Tarmoqlar Video Pleyeri</h1>
+                  <p className="text-sm text-zinc-500">YouTube, Instagram (Reels/Post) va TikTok rasmiy havolalarini joylashtiring — platforma avtomatik aniqlaydi</p>
+                </div>
+
+                <form onSubmit={handleAddVideo} className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="url"
-                    value={videoInputUrl}
-                    onChange={(e) => setVideoInputUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=... yoki Instagram/TikTok havolasi"
-                    className={`flex-1 px-4 py-2.5 rounded-2xl border text-xs sm:text-sm ${subtleBg}`}
+                    value={videoUrlInput}
+                    onChange={(e) => setVideoUrlInput(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=... yoki Instagram / TikTok havolasi"
+                    className="flex-1 px-4 py-3 rounded-2xl bg-[#F4F5F7] dark:bg-zinc-900 text-sm outline-none border border-transparent focus:border-zinc-400"
+                    required
                   />
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 rounded-2xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold flex items-center justify-center gap-2"
-                  >
-                    <Play className="w-4 h-4" />
+                  <button type="submit" className="px-6 py-3 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold">
                     Videoni ochish
                   </button>
                 </form>
-                {videoErr && <p className="text-xs text-rose-600">{videoErr}</p>}
-              </div>
 
-              {activeVideo && (
-                <div className={`p-5 rounded-3xl border shadow-sm space-y-3 ${cardBg}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[11px] font-bold">
-                        {activeVideo.platform}
-                      </span>
-                      <h3 className="font-bold text-base mt-1">{activeVideo.title}</h3>
+                {videoError && (
+                  <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" /> {videoError}
+                  </div>
+                )}
+
+                {activeVideo && (
+                  <div className="rounded-3xl overflow-hidden bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 lg:p-6">
+                    <div className="aspect-video w-full max-w-4xl mx-auto rounded-2xl overflow-hidden bg-black">
+                      <iframe
+                        src={activeVideo.embedUrl}
+                        title={activeVideo.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
                     </div>
-                    <a
-                      href={activeVideo.originalUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold flex items-center gap-1"
+                    <div className="max-w-4xl mx-auto mt-4 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 mr-2">
+                          {activeVideo.platform}
+                        </span>
+                        <span className="font-semibold text-sm">{activeVideo.title}</span>
+                      </div>
+                      <a href={activeVideo.originalUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 flex items-center gap-1">
+                        Asl manbada ochish <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {videos.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setActiveVideo(v)}
+                      className="p-4 rounded-2xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800 text-left hover:border-zinc-400 transition"
                     >
-                      <span>Asl manba</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                  <div className="w-full aspect-video rounded-2xl overflow-hidden bg-slate-950">
-                    <iframe
-                      src={activeVideo.embedUrl}
-                      title={activeVideo.title}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
+                      <span className="text-[11px] font-bold text-blue-600">{v.platform}</span>
+                      <p className="font-semibold text-sm mt-1 truncate">{v.title}</p>
+                      <p className="text-xs text-zinc-500 truncate mt-1">{v.originalUrl}</p>
+                    </button>
+                  ))}
                 </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {videos.map((v) => (
-                  <div
-                    key={v.id}
-                    onClick={() => setActiveVideo(v)}
-                    className={`p-4 rounded-2xl border cursor-pointer hover:shadow-md transition ${cardBg}`}
-                  >
-                    <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
-                      {v.platform}
-                    </span>
-                    <h4 className="font-bold text-xs mt-2 mb-1 line-clamp-2">{v.title}</h4>
-                    <p className={`text-[11px] truncate ${mutedText}`}>{v.originalUrl}</p>
-                  </div>
-                ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ============================================================== */}
-          {/* 5. KOMPYUTERLAR BAZASI (WITH PHOTOS & COMPARISON)              */}
-          {/* ============================================================== */}
-          {activeSection === "computers" && (
-            <div className="space-y-5">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold">Kompyuter va Noutbuklar Bazasi</h2>
-                  <p className={`text-xs ${mutedText}`}>
-                    11 ta brend noutbuklarining rasmlari, to'liq texnik tavsifi va taqqoslash jadvali.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
+            {/* 5. COMPUTERS DATABASE */}
+            {activeSection === 'computers' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold">Kompyuter va Noutbuklar Bazasi</h1>
+                    <p className="text-sm text-zinc-500">11 ta yetakchi brend modellari, texnik xususiyatlari va taqqoslash</p>
+                  </div>
                   <input
                     type="text"
                     value={compSearch}
                     onChange={(e) => setCompSearch(e.target.value)}
-                    placeholder="Model yoki CPU qidirish..."
-                    className={`px-3.5 py-2 rounded-xl border text-xs ${cardBg}`}
+                    placeholder="Model yoki protsessor qidirish..."
+                    className="px-4 py-2 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 text-sm outline-none"
                   />
-                  <button
-                    onClick={() => setShowLaptopCompare((s) => !s)}
-                    className="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold flex items-center gap-1.5"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
-                    Taqqoslash ({compareLaptopIds.length})
-                  </button>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                {["Barchasi", "Apple", "ASUS", "Lenovo", "HP", "Dell", "Acer", "MSI", "Microsoft", "Samsung", "Razer", "Huawei"].map(
-                  (b) => (
+                <div className="flex flex-wrap gap-2">
+                  {['Barchasi', 'Apple', 'ASUS', 'Lenovo', 'HP', 'Dell', 'Acer', 'MSI', 'Microsoft', 'Samsung', 'Razer', 'Huawei'].map((b) => (
                     <button
                       key={b}
                       onClick={() => setCompBrand(b)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                        compBrand === b ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                        compBrand === b ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-[#F4F5F7] dark:bg-zinc-900'
                       }`}
                     >
                       {b}
                     </button>
-                  )
-                )}
-              </div>
+                  ))}
+                </div>
 
-              {showLaptopCompare && (
-                <div className={`p-5 rounded-3xl border shadow-md overflow-x-auto ${cardBg}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-sm">Noutbuklarni yonma-yon taqqoslash</h3>
-                    <button onClick={() => setShowLaptopCompare(false)} className="text-xs text-slate-400">
-                      Yopish ✕
-                    </button>
-                  </div>
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-800">
-                        <th className="py-2 pr-4 font-bold">Ko'rsatkich</th>
-                        {compareLaptopIds.map((id) => {
-                          const item = COMPUTERS_CATALOG.find((c) => c.id === id);
-                          return (
-                            <th key={id} className="py-2 px-3 font-bold">
-                              {item?.model}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {[
-                        { label: "Brend", key: "brand" as const },
-                        { label: "Protsessor", key: "cpu" as const },
-                        { label: "RAM", key: "ram" as const },
-                        { label: "Xotira", key: "storage" as const },
-                        { label: "GPU", key: "gpu" as const },
-                        { label: "Displey", key: "display" as const },
-                        { label: "Batareya", key: "battery" as const },
-                        { label: "Narx", key: "priceRange" as const }
-                      ].map((row) => (
-                        <tr key={row.label}>
-                          <td className={`py-2 pr-4 font-semibold ${mutedText}`}>{row.label}</td>
-                          {compareLaptopIds.map((id) => {
-                            const item = COMPUTERS_CATALOG.find((c) => c.id === id);
-                            return (
-                              <td key={id} className="py-2 px-3">
-                                {item ? String(item[row.key]) : "-"}
-                              </td>
-                            );
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {COMPUTERS_DB
+                    .filter((c) => (compBrand === 'Barchasi' || c.brand === compBrand) && `${c.brand} ${c.model} ${c.processor}`.toLowerCase().includes(compSearch.toLowerCase()))
+                    .map((comp) => {
+                      const inCompare = compareComputers.includes(comp.id);
+                      return (
+                        <div key={comp.id} className="rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 overflow-hidden flex flex-col">
+                          <img src={comp.image} alt={comp.model} className="w-full h-48 object-cover" />
+                          <div className="p-5 flex-1 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-blue-600">{comp.brand} • {comp.year}</span>
+                                <span className="font-bold text-sm">{comp.price}</span>
+                              </div>
+                              <h3 className="font-bold text-base mt-1">{comp.model}</h3>
+                              <ul className="mt-3 space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                                <li>• <b>CPU:</b> {comp.processor}</li>
+                                <li>• <b>RAM / SSD:</b> {comp.ram} / {comp.storage}</li>
+                                <li>• <b>GPU:</b> {comp.gpu}</li>
+                                <li>• <b>Ekran:</b> {comp.display}</li>
+                              </ul>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-zinc-200/70 dark:border-zinc-800 flex items-center gap-2">
+                              <button
+                                onClick={() => setSelectedComputer(comp)}
+                                className="flex-1 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold"
+                              >
+                                Batafsil
+                              </button>
+                              <button
+                                onClick={() => setCompareComputers((prev) => inCompare ? prev.filter((x) => x !== comp.id) : [...prev.slice(-1), comp.id])}
+                                className={`px-3 py-2 rounded-xl text-xs font-semibold border ${inCompare ? 'border-blue-500 text-blue-600' : 'border-zinc-300 dark:border-zinc-700'}`}
+                              >
+                                {inCompare ? 'Tanlangan' : 'Taqqoslash'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {/* Comparison Table */}
+                {compareComputers.length === 2 && (
+                  <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 overflow-x-auto">
+                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                      <ArrowLeftRight className="w-5 h-5 text-blue-500" /> Noutbuklarni Taqqoslash
+                    </h2>
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                          <th className="py-2 text-zinc-500">Xususiyat</th>
+                          {compareComputers.map((id) => {
+                            const c = COMPUTERS_DB.find((x) => x.id === id);
+                            return <th key={id} className="py-2 font-bold">{c?.brand} {c?.model}</th>;
                           })}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {COMPUTERS_CATALOG.filter((c) => (compBrand === "Barchasi" ? true : c.brand === compBrand))
-                  .filter((c) =>
-                    !compSearch.trim()
-                      ? true
-                      : `${c.brand} ${c.model} ${c.cpu}`.toLowerCase().includes(compSearch.toLowerCase())
-                  )
-                  .map((comp) => {
-                    const selected = compareLaptopIds.includes(comp.id);
-                    return (
-                      <div key={comp.id} className={`rounded-3xl border overflow-hidden shadow-sm flex flex-col justify-between ${cardBg}`}>
-                        <div>
-                          <div className="relative h-44 bg-slate-100 dark:bg-slate-800">
-                            <img
-                              src={comp.imageUrl}
-                              alt={comp.model}
-                              onError={(e) => {
-                                e.currentTarget.src = LAPTOP_FALLBACK_SVG;
-                              }}
-                              className="w-full h-full object-cover"
-                            />
-                            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 text-white text-[10px] font-bold">
-                              {comp.brand} • {comp.year}
-                            </span>
-                            <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-xl bg-white/95 text-slate-900 text-xs font-extrabold shadow">
-                              {comp.priceRange}
-                            </span>
-                          </div>
-
-                          <div className="p-4 space-y-1.5 text-xs">
-                            <h3 className="font-extrabold text-base">{comp.model}</h3>
-                            <div className={mutedText}>CPU: {comp.cpu}</div>
-                            <div className={mutedText}>RAM / SSD: {comp.ram} • {comp.storage}</div>
-                            <div className={mutedText}>GPU: {comp.gpu}</div>
-                            <p className={`text-[11px] pt-1 line-clamp-2 ${mutedText}`}>{comp.description}</p>
-                          </div>
-                        </div>
-
-                        <div className="px-4 pb-4 flex items-center gap-2">
-                          <button
-                            onClick={() => setDetailLaptop(comp)}
-                            className="flex-1 py-2 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold"
-                          >
-                            Batafsil
-                          </button>
-                          <button
-                            onClick={() =>
-                              setCompareLaptopIds((prev) =>
-                                prev.includes(comp.id)
-                                  ? prev.filter((x) => x !== comp.id)
-                                  : prev.length >= 3
-                                  ? [...prev.slice(1), comp.id]
-                                  : [...prev, comp.id]
-                              )
-                            }
-                            className={`px-3 py-2 rounded-xl border text-xs font-semibold ${
-                              selected ? "bg-blue-50 border-blue-400 text-blue-700" : cardBg
-                            }`}
-                          >
-                            {selected ? "Tanlangan" : "+ Taqqos"}
-                          </button>
-                          <button
-                            onClick={() =>
-                              toggleSaveBookmark({
-                                id: comp.id,
-                                type: "Kompyuter",
-                                title: comp.model,
-                                subtitle: `${comp.brand} • ${comp.priceRange}`,
-                                section: "computers"
-                              })
-                            }
-                            className={`p-2 rounded-xl border ${cardBg}`}
-                          >
-                            <Bookmark
-                              className={`w-3.5 h-3.5 ${isSaved(comp.id) ? "fill-blue-600 text-blue-600" : ""}`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-
-              {detailLaptop && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                  <div className={`max-w-xl w-full rounded-3xl border p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto ${cardBg}`}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-extrabold">{detailLaptop.model}</h3>
-                      <button onClick={() => setDetailLaptop(null)} className="p-2 rounded-xl hover:bg-slate-100">
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <img
-                      src={detailLaptop.imageUrl}
-                      alt={detailLaptop.model}
-                      onError={(e) => {
-                        e.currentTarget.src = LAPTOP_FALLBACK_SVG;
-                      }}
-                      className="w-full h-52 object-cover rounded-2xl"
-                    />
-                    <div className={`p-4 rounded-2xl space-y-1.5 text-xs ${subtleBg}`}>
-                      <div><strong>Brend va yil:</strong> {detailLaptop.brand} ({detailLaptop.year})</div>
-                      <div><strong>Protsessor:</strong> {detailLaptop.cpu}</div>
-                      <div><strong>RAM:</strong> {detailLaptop.ram}</div>
-                      <div><strong>Xotira:</strong> {detailLaptop.storage}</div>
-                      <div><strong>Videokarta:</strong> {detailLaptop.gpu}</div>
-                      <div><strong>Displey:</strong> {detailLaptop.display}</div>
-                      <div><strong>Batareya:</strong> {detailLaptop.battery}</div>
-                      <div><strong>Narx:</strong> {detailLaptop.priceRange}</div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-900">
-                        <div className="font-bold mb-1">Afzalliklari:</div>
-                        <ul className="list-disc pl-4">
-                          {detailLaptop.pros.map((p, i) => (
-                            <li key={i}>{p}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="p-3 rounded-2xl bg-rose-50 text-rose-900">
-                        <div className="font-bold mb-1">Kamchiliklari:</div>
-                        <ul className="list-disc pl-4">
-                          {detailLaptop.cons.map((c, i) => (
-                            <li key={i}>{c}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800 text-xs">
+                        {(['processor', 'ram', 'storage', 'gpu', 'display', 'battery', 'price'] as const).map((field) => (
+                          <tr key={field}>
+                            <td className="py-2.5 font-semibold uppercase text-zinc-500">{field}</td>
+                            {compareComputers.map((id) => {
+                              const c = COMPUTERS_DB.find((x) => x.id === id);
+                              return <td key={id} className="py-2.5">{c?.[field]}</td>;
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
-          {/* ============================================================== */}
-          {/* 6. SMARTFONLAR BAZASI (WITH PHOTOS & COMPARISON)               */}
-          {/* ============================================================== */}
-          {activeSection === "smartphones" && (
-            <div className="space-y-5">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold">Smartfonlar Ma'lumotlar Bazasi</h2>
-                  <p className={`text-xs ${mutedText}`}>
-                    13 ta mashhur brend smartfonlarining rasmlari, kamera, protsessor va batareya ko'rsatkichlari.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
+            {/* 6. SMARTPHONES DATABASE */}
+            {activeSection === 'smartphones' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold">Smartfonlar Ma’lumotlar Bazasi</h1>
+                    <p className="text-sm text-zinc-500">13 ta mashhur brend smartfonlari, kamera, batareya va narxlar taqqoslagichi</p>
+                  </div>
                   <input
                     type="text"
                     value={phoneSearch}
                     onChange={(e) => setPhoneSearch(e.target.value)}
-                    placeholder="Smartfon qidirish..."
-                    className={`px-3.5 py-2 rounded-xl border text-xs ${cardBg}`}
+                    placeholder="Smartfon modelini qidirish..."
+                    className="px-4 py-2 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 text-sm outline-none"
                   />
-                  <button
-                    onClick={() => setShowPhoneCompare((s) => !s)}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1.5"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
-                    Taqqoslash ({comparePhoneIds.length})
-                  </button>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  "Barchasi",
-                  "Apple iPhone",
-                  "Samsung Galaxy",
-                  "Xiaomi",
-                  "Redmi",
-                  "POCO",
-                  "Google Pixel",
-                  "Huawei",
-                  "Honor",
-                  "OnePlus",
-                  "OPPO",
-                  "Vivo",
-                  "Realme",
-                  "Nothing"
-                ].map((b) => (
-                  <button
-                    key={b}
-                    onClick={() => setPhoneBrand(b)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                      phoneBrand === b ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
-                    }`}
-                  >
-                    {b}
-                  </button>
-                ))}
-              </div>
-
-              {showPhoneCompare && (
-                <div className={`p-5 rounded-3xl border shadow-md overflow-x-auto ${cardBg}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-sm">Smartfonlarni yonma-yon taqqoslash</h3>
-                    <button onClick={() => setShowPhoneCompare(false)} className="text-xs text-slate-400">
-                      Yopish ✕
-                    </button>
-                  </div>
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-800">
-                        <th className="py-2 pr-4 font-bold">Xususiyat</th>
-                        {comparePhoneIds.map((id) => {
-                          const p = SMARTPHONES_CATALOG.find((x) => x.id === id);
-                          return (
-                            <th key={id} className="py-2 px-3 font-bold">
-                              {p?.model}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {[
-                        { label: "Displey", key: "display" as const },
-                        { label: "Protsessor", key: "processor" as const },
-                        { label: "RAM / Xotira", key: "ramStorage" as const },
-                        { label: "Asosiy kamera", key: "mainCamera" as const },
-                        { label: "Batareya", key: "battery" as const },
-                        { label: "Quvvatlash", key: "charging" as const },
-                        { label: "Narx", key: "price" as const }
-                      ].map((row) => (
-                        <tr key={row.label}>
-                          <td className={`py-2 pr-4 font-semibold ${mutedText}`}>{row.label}</td>
-                          {comparePhoneIds.map((id) => {
-                            const p = SMARTPHONES_CATALOG.find((x) => x.id === id);
-                            return (
-                              <td key={id} className="py-2 px-3">
-                                {p ? p[row.key] : "-"}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {SMARTPHONES_CATALOG.filter((p) => (phoneBrand === "Barchasi" ? true : p.brand === phoneBrand))
-                  .filter((p) =>
-                    !phoneSearch.trim()
-                      ? true
-                      : `${p.brand} ${p.model} ${p.processor}`.toLowerCase().includes(phoneSearch.toLowerCase())
-                  )
-                  .map((ph) => {
-                    const selected = comparePhoneIds.includes(ph.id);
-                    return (
-                      <div key={ph.id} className={`rounded-3xl border overflow-hidden shadow-sm flex flex-col justify-between ${cardBg}`}>
-                        <div>
-                          <div className="relative h-44 bg-slate-100 dark:bg-slate-800">
-                            <img
-                              src={ph.imageUrl}
-                              alt={ph.model}
-                              onError={(e) => {
-                                e.currentTarget.src = PHONE_FALLBACK_SVG;
-                              }}
-                              className="w-full h-full object-cover"
-                            />
-                            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 text-white text-[10px] font-bold">
-                              {ph.brand}
-                            </span>
-                            <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-xl bg-white/95 text-slate-900 text-xs font-extrabold shadow">
-                              {ph.price}
-                            </span>
-                          </div>
-
-                          <div className="p-4 space-y-1.5 text-xs">
-                            <h3 className="font-extrabold text-base">{ph.model}</h3>
-                            <div className={mutedText}>Chip: {ph.processor}</div>
-                            <div className={`truncate ${mutedText}`}>Kamera: {ph.mainCamera}</div>
-                            <div className={mutedText}>Batareya: {ph.battery} • {ph.charging}</div>
-                          </div>
-                        </div>
-
-                        <div className="px-4 pb-4 flex items-center gap-2">
-                          <button
-                            onClick={() => setDetailPhone(ph)}
-                            className="flex-1 py-2 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold"
-                          >
-                            Batafsil
-                          </button>
-                          <button
-                            onClick={() =>
-                              setComparePhoneIds((prev) =>
-                                prev.includes(ph.id)
-                                  ? prev.filter((x) => x !== ph.id)
-                                  : prev.length >= 3
-                                  ? [...prev.slice(1), ph.id]
-                                  : [...prev, ph.id]
-                              )
-                            }
-                            className={`px-3 py-2 rounded-xl border text-xs font-semibold ${
-                              selected ? "bg-emerald-50 border-emerald-400 text-emerald-700" : cardBg
-                            }`}
-                          >
-                            {selected ? "Tanlangan" : "+ Taqqos"}
-                          </button>
-                          <button
-                            onClick={() =>
-                              toggleSaveBookmark({
-                                id: ph.id,
-                                type: "Smartfon",
-                                title: ph.model,
-                                subtitle: `${ph.brand} • ${ph.price}`,
-                                section: "smartphones"
-                              })
-                            }
-                            className={`p-2 rounded-xl border ${cardBg}`}
-                          >
-                            <Bookmark
-                              className={`w-3.5 h-3.5 ${isSaved(ph.id) ? "fill-blue-600 text-blue-600" : ""}`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-
-              {detailPhone && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                  <div className={`max-w-lg w-full rounded-3xl border p-6 shadow-2xl space-y-3 max-h-[90vh] overflow-y-auto ${cardBg}`}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-extrabold">{detailPhone.model}</h3>
-                      <button onClick={() => setDetailPhone(null)} className="p-2 rounded-xl hover:bg-slate-100">
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <img
-                      src={detailPhone.imageUrl}
-                      alt={detailPhone.model}
-                      onError={(e) => {
-                        e.currentTarget.src = PHONE_FALLBACK_SVG;
-                      }}
-                      className="w-full h-52 object-cover rounded-2xl"
-                    />
-                    <div className={`p-4 rounded-2xl space-y-1.5 text-xs ${subtleBg}`}>
-                      <div><strong>Sana:</strong> {detailPhone.releaseDate}</div>
-                      <div><strong>Displey:</strong> {detailPhone.display}</div>
-                      <div><strong>Protsessor:</strong> {detailPhone.processor}</div>
-                      <div><strong>RAM / Xotira:</strong> {detailPhone.ramStorage}</div>
-                      <div><strong>Asosiy kamera:</strong> {detailPhone.mainCamera}</div>
-                      <div><strong>Old kamera:</strong> {detailPhone.frontCamera}</div>
-                      <div><strong>Batareya:</strong> {detailPhone.battery}</div>
-                      <div><strong>Quvvatlash:</strong> {detailPhone.charging}</div>
-                      <div><strong>Tizim:</strong> {detailPhone.os}</div>
-                      <div><strong>Narxi:</strong> {detailPhone.price}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ============================================================== */}
-          {/* 7. AI YORDAMCHI                                                */}
-          {/* ============================================================== */}
-          {activeSection === "ai" && (
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-[70vh]">
-              <div className={`p-4 rounded-3xl border space-y-3 ${cardBg}`}>
-                <button
-                  onClick={() => {
-                    const id = `th-${Date.now()}`;
-                    setThreads((prev) => [
-                      {
-                        id,
-                        title: "Yangi suhbat",
-                        messages: [
-                          {
-                            id: `m-${Date.now()}`,
-                            role: "assistant",
-                            text: "Yangi suhbat ochildi. Savolingizni yozing!",
-                            time: "Hozir"
-                          }
-                        ]
-                      },
-                      ...prev
-                    ]);
-                    setActiveThreadId(id);
-                  }}
-                  className="w-full py-2.5 rounded-2xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  Yangi suhbat
-                </button>
-                <div className="space-y-1.5 max-h-80 overflow-y-auto">
-                  {threads.map((th) => (
+                <div className="flex flex-wrap gap-2">
+                  {['Barchasi', 'Apple', 'Samsung', 'Xiaomi', 'Redmi', 'POCO', 'Google', 'Huawei', 'Honor', 'OnePlus', 'OPPO', 'Vivo', 'Realme', 'Nothing'].map((b) => (
                     <button
-                      key={th.id}
-                      onClick={() => setActiveThreadId(th.id)}
-                      className={`w-full p-2.5 rounded-xl text-left text-xs truncate ${
-                        th.id === currentThread.id ? "bg-blue-50 dark:bg-slate-800 font-bold text-blue-700" : subtleBg
+                      key={b}
+                      onClick={() => setPhoneBrand(b)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                        phoneBrand === b ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-[#F4F5F7] dark:bg-zinc-900'
                       }`}
                     >
-                      {th.title}
+                      {b}
                     </button>
                   ))}
                 </div>
-              </div>
 
-              <div className={`lg:col-span-3 rounded-3xl border shadow-sm flex flex-col overflow-hidden ${cardBg}`}>
-                <div className={`p-4 border-b flex items-center justify-between ${subtleBg}`}>
-                  <div className="flex items-center gap-2">
-                    <Bot className="w-5 h-5 text-blue-600" />
-                    <span className="font-bold text-sm">VerMix AI Yordamchi</span>
-                  </div>
-                  <span className="text-[11px] text-emerald-600 font-semibold">Onlayn</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {PHONES_DB
+                    .filter((p) => (phoneBrand === 'Barchasi' || p.brand === phoneBrand) && `${p.brand} ${p.model}`.toLowerCase().includes(phoneSearch.toLowerCase()))
+                    .map((phone) => {
+                      const inCompare = comparePhones.includes(phone.id);
+                      return (
+                        <div key={phone.id} className="rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 overflow-hidden flex flex-col">
+                          <img src={phone.image} alt={phone.model} className="w-full h-48 object-cover" />
+                          <div className="p-5 flex-1 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-blue-600">{phone.brand}</span>
+                                <span className="font-bold text-sm">{phone.price}</span>
+                              </div>
+                              <h3 className="font-bold text-base mt-1">{phone.model}</h3>
+                              <ul className="mt-3 space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                                <li>• <b>Ekran:</b> {phone.display}</li>
+                                <li>• <b>Chip:</b> {phone.processor}</li>
+                                <li>• <b>Kamera:</b> {phone.mainCamera}</li>
+                                <li>• <b>Batareya:</b> {phone.battery} ({phone.charging})</li>
+                              </ul>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-zinc-200/70 dark:border-zinc-800 flex items-center gap-2">
+                              <button
+                                onClick={() => setSelectedPhone(phone)}
+                                className="flex-1 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold"
+                              >
+                                Batafsil
+                              </button>
+                              <button
+                                onClick={() => setComparePhones((prev) => inCompare ? prev.filter((x) => x !== phone.id) : [...prev.slice(-1), phone.id])}
+                                className={`px-3 py-2 rounded-xl text-xs font-semibold border ${inCompare ? 'border-blue-500 text-blue-600' : 'border-zinc-300 dark:border-zinc-700'}`}
+                              >
+                                {inCompare ? 'Tanlangan' : 'Taqqoslash'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
 
-                <div className="flex-1 p-4 space-y-3 overflow-y-auto max-h-[52vh]">
-                  {currentThread.messages.map((m) => (
-                    <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                {comparePhones.length === 2 && (
+                  <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 overflow-x-auto">
+                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                      <ArrowLeftRight className="w-5 h-5 text-blue-500" /> Smartfonlarni Taqqoslash
+                    </h2>
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                          <th className="py-2 text-zinc-500">Parametr</th>
+                          {comparePhones.map((id) => {
+                            const p = PHONES_DB.find((x) => x.id === id);
+                            return <th key={id} className="py-2 font-bold">{p?.brand} {p?.model}</th>;
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800 text-xs">
+                        {(['display', 'processor', 'ramStorage', 'mainCamera', 'frontCamera', 'battery', 'charging', 'price'] as const).map((field) => (
+                          <tr key={field}>
+                            <td className="py-2.5 font-semibold uppercase text-zinc-500">{field}</td>
+                            {comparePhones.map((id) => {
+                              const p = PHONES_DB.find((x) => x.id === id);
+                              return <td key={id} className="py-2.5">{p?.[field]}</td>;
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 7. AI ASSISTANT */}
+            {activeSection === 'ai-assistant' && (
+              <div className="h-[calc(100vh-11rem)] flex flex-col rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 overflow-hidden">
+                <div className="p-4 border-b border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-950">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center">
+                      <Bot className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-sm">VerMix AI Yordamchi (Gemini 2.5)</h2>
+                      <p className="text-[11px] text-emerald-600 font-medium">● Xavfsiz server API orqali ulangan</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setChatMessages([{ id: 'new', role: 'assistant', content: 'Yangi suhbat boshlandi. Qanday yordam bera olaman?', timestamp: 'Hozir' }])}
+                    className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Yangi chat
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
+                  {chatMessages.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div
-                        className={`max-w-[85%] p-3.5 rounded-2xl text-xs sm:text-sm whitespace-pre-wrap ${
-                          m.role === "user" ? "bg-slate-900 dark:bg-blue-600 text-white" : subtleBg
+                        className={`max-w-2xl rounded-2xl p-4 text-sm leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                            : 'bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800'
                         }`}
                       >
-                        <div>{m.text}</div>
-                        {m.role === "assistant" && (
-                          <button
-                            onClick={() => copyText(m.text, "AI javobi")}
-                            className="mt-2 inline-flex items-center gap-1 text-[10px] opacity-70 hover:opacity-100"
-                          >
-                            <Copy className="w-3 h-3" />
-                            Nusxalash
-                          </button>
+                        {msg.attachmentName && (
+                          <div className="text-xs font-semibold mb-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-500 inline-block">
+                            📎 {msg.attachmentName}
+                          </div>
                         )}
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        <div className="mt-2 flex items-center justify-between text-[10px] opacity-60">
+                          <span>{msg.timestamp}</span>
+                          {msg.role === 'assistant' && (
+                            <button onClick={() => copyText(msg.content, 'AI javobi')} className="hover:opacity-100 flex items-center gap-1">
+                              <Copy className="w-3 h-3" /> Nusxalash
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
+                  {aiThinking && (
+                    <div className="text-xs text-zinc-500 flex items-center gap-2">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> VerMix AI o‘ylamoqda...
+                    </div>
+                  )}
                 </div>
 
-                <form onSubmit={sendAiMessage} className={`p-3.5 border-t flex gap-2 ${subtleBg}`}>
+                <form onSubmit={handleSendAiMessage} className="p-3 bg-white dark:bg-zinc-950 border-t border-zinc-200/80 dark:border-zinc-800 flex items-center gap-2">
+                  <label className="p-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 cursor-pointer hover:bg-zinc-200 transition" title="Fayl tahlili (.txt, .md, .json, .csv)">
+                    <Upload className="w-4 h-4" />
+                    <input
+                      type="file"
+                      accept=".txt,.md,.json,.csv,.js,.ts,.py"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        setUploadedFileName(f.name);
+                        const reader = new FileReader();
+                        reader.onload = () => setUploadedFileText(String(reader.result || ''));
+                        reader.readAsText(f);
+                      }}
+                    />
+                  </label>
                   <input
                     type="text"
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    placeholder="AI yordamchiga savol yozing..."
-                    className={`flex-1 px-4 py-2.5 rounded-xl border text-xs sm:text-sm ${cardBg}`}
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder={uploadedFileName ? `${uploadedFileName} bo‘yicha savol yozing...` : 'Savol bering, kod yozdiring yoki tarjima qiling...'}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 text-sm outline-none"
                   />
-                  <button
-                    type="submit"
-                    disabled={aiBusy}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold flex items-center gap-1.5"
-                  >
+                  <button type="submit" disabled={aiThinking} className="p-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900">
                     <Send className="w-4 h-4" />
-                    <span>{aiBusy ? "..." : "Yuborish"}</span>
                   </button>
                 </form>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ============================================================== */}
-          {/* 8. KALENDAR                                                    */}
-          {/* ============================================================== */}
-          {activeSection === "calendar" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              <div className={`lg:col-span-2 p-5 rounded-3xl border shadow-sm space-y-4 ${cardBg}`}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-base font-extrabold">
-                    {monthCursor.toLocaleDateString("uz-UZ", { month: "long", year: "numeric" })}
-                  </h2>
-                  <div className="flex gap-1.5">
-                    {(["month", "week", "day"] as const).map((v) => (
+            {/* 8. CALENDAR */}
+            {activeSection === 'calendar' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold">Interaktiv Kalendar va Rejalar</h1>
+                    <p className="text-sm text-zinc-500">Tadbirlar, eslatmalar va kunlik vazifalarni boshqaring</p>
+                  </div>
+                  <div className="flex gap-1.5 bg-[#F4F5F7] dark:bg-zinc-900 p-1 rounded-xl">
+                    {(['month', 'week', 'day'] as const).map((v) => (
                       <button
                         key={v}
                         onClick={() => setCalView(v)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                          calView === v ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize ${calView === v ? 'bg-white dark:bg-zinc-800 shadow-2xs' : ''}`}
                       >
-                        {v === "month" ? "Oylik" : v === "week" ? "Haftalik" : "Kunlik"}
+                        {v === 'month' ? 'Oylik' : v === 'week' ? 'Haftalik' : 'Kunlik'}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5">
-                  {monthGridCells.map((d, i) => {
-                    if (!d) return <div key={i} className="h-14" />;
-                    const num = Number(d.split("-")[2]);
-                    const hasEv = calEvents.some((ev) => ev.date === d);
-                    const isToday = d === todayIso;
-                    const isSel = d === selectedDate;
-                    return (
-                      <button
-                        key={d}
-                        onClick={() => setSelectedDate(d)}
-                        className={`h-14 p-1.5 rounded-2xl border text-left flex flex-col justify-between ${
-                          isSel ? "border-blue-600 ring-2 ring-blue-500/20" : "border-slate-100 dark:border-slate-800"
-                        } ${isToday ? "bg-blue-50/70 dark:bg-blue-950/30" : subtleBg}`}
-                      >
-                        <span className={`text-xs font-bold ${isToday ? "text-blue-600" : ""}`}>{num}</span>
-                        {hasEv && <span className="w-2 h-2 rounded-full bg-blue-600" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <form onSubmit={handleSaveCalEvent} className={`p-5 rounded-3xl border shadow-sm space-y-3 ${cardBg}`}>
-                  <h3 className="font-bold text-sm">
-                    {editEventId ? "Tadbirni tahrirlash" : `${selectedDate} uchun tadbir`}
-                  </h3>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!newEventTitle.trim()) return;
+                    setEvents((prev) => [
+                      { id: `ev-${Date.now()}`, title: newEventTitle.trim(), date: newEventDate, time: newEventTime, color: newEventColor, notes: '' },
+                      ...prev,
+                    ]);
+                    setNewEventTitle('');
+                    showToast('Tadbir kalendarga qo‘shildi!');
+                  }}
+                  className="p-4 rounded-2xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-5 gap-3"
+                >
                   <input
                     type="text"
+                    value={newEventTitle}
+                    onChange={(e) => setNewEventTitle(e.target.value)}
+                    placeholder="Yangi tadbir yoki eslatma nomi..."
+                    className="sm:col-span-2 px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm outline-none"
                     required
-                    value={evTitle}
-                    onChange={(e) => setEvTitle(e.target.value)}
-                    placeholder="Tadbir nomi..."
-                    className={`w-full px-3.5 py-2 rounded-xl border text-xs ${subtleBg}`}
                   />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="time"
-                      value={evTime}
-                      onChange={(e) => setEvTime(e.target.value)}
-                      className={`px-3 py-2 rounded-xl border text-xs ${subtleBg}`}
-                    />
+                  <input
+                    type="date"
+                    value={newEventDate}
+                    onChange={(e) => setNewEventDate(e.target.value)}
+                    className="px-3 py-2 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={newEventTime}
+                    onChange={(e) => setNewEventTime(e.target.value)}
+                    className="px-3 py-2 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm"
+                  />
+                  <div className="flex items-center gap-2">
                     <select
-                      value={evCategory}
-                      onChange={(e) => setEvCategory(e.target.value as CalendarItem["category"])}
-                      className={`px-3 py-2 rounded-xl border text-xs ${subtleBg}`}
+                      value={newEventColor}
+                      onChange={(e) => setNewEventColor(e.target.value)}
+                      className="px-2.5 py-2 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs"
                     >
-                      <option value="Tadbir">Tadbir</option>
-                      <option value="Eslatma">Eslatma</option>
-                      <option value="Vazifa">Vazifa</option>
-                      <option value="Muhim sana">Muhim sana</option>
+                      <option value="bg-blue-500">Ko‘k</option>
+                      <option value="bg-emerald-500">Yashil</option>
+                      <option value="bg-amber-500">Sariq</option>
+                      <option value="bg-purple-500">Binafsha</option>
                     </select>
+                    <button type="submit" className="flex-1 py-2 px-4 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold">
+                      Qo‘shish
+                    </button>
                   </div>
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold"
-                  >
-                    {editEventId ? "Yangilash" : "Saqlash"}
-                  </button>
                 </form>
 
-                <div className={`p-5 rounded-3xl border shadow-sm space-y-2 ${cardBg}`}>
-                  <h4 className="font-bold text-xs">Rejalar ro'yxati</h4>
-                  {calEvents
-                    .filter((ev) => (calView === "day" ? ev.date === selectedDate : true))
-                    .map((ev) => (
-                      <div key={ev.id} className={`p-3 rounded-2xl flex items-center justify-between text-xs ${subtleBg}`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {events.map((ev) => (
+                    <div key={ev.id} className="p-4 rounded-2xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-3 h-10 rounded-full ${ev.color}`} />
                         <div>
-                          <div className="font-bold">{ev.title}</div>
-                          <div className={`text-[11px] ${mutedText}`}>
-                            {ev.date} • {ev.time} ({ev.category})
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => {
-                              setEditEventId(ev.id);
-                              setEvTitle(ev.title);
-                              setEvTime(ev.time);
-                              setEvCategory(ev.category);
-                            }}
-                            className="p-1 text-blue-600"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setCalEvents((prev) => prev.filter((x) => x.id !== ev.id))}
-                            className="p-1 text-rose-600"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <p className="font-semibold text-sm">{ev.title}</p>
+                          <p className="text-xs text-zinc-500">{ev.date} • Soat {ev.time}</p>
                         </div>
                       </div>
-                    ))}
+                      <button onClick={() => setEvents((prev) => prev.filter((x) => x.id !== ev.id))} className="p-2 text-zinc-400 hover:text-red-500">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ============================================================== */}
-          {/* 9. MOBIL OPERATORLAR                                           */}
-          {/* ============================================================== */}
-          {activeSection === "operators" && (
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-xl font-extrabold">O'zbekiston Mobil Operatorlari</h2>
-                <p className={`text-xs ${mutedText}`}>
-                  Beeline, Ucell, Uzmobile, Mobiuz va Humans uchun USSD kodlar va tariflar.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {OPERATORS_UZ.map((op) => (
-                  <button
-                    key={op.id}
-                    onClick={() => setSelectedOpId(op.id)}
-                    className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold ${
-                      selectedOpId === op.id ? op.badgeColor : `${cardBg} border`
-                    }`}
-                  >
-                    {op.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className={`p-6 rounded-3xl border shadow-sm space-y-5 ${cardBg}`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-extrabold ${currentOp.badgeColor}`}>
-                    {currentOp.name}
-                  </span>
-                  <div className="flex gap-2">
-                    <a
-                      href={`tel:${currentOp.supportPhone}`}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1.5"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      {currentOp.supportPhone}
-                    </a>
-                    <a
-                      href={currentOp.website}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`px-3.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1 ${cardBg}`}
-                    >
-                      <span>Sayt</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
+            {/* 9. UZBEKISTAN MOBILE OPERATORS */}
+            {activeSection === 'operators' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-2xl font-bold">O‘zbekiston Mobil Operatorlari Ma’lumotnomasi</h1>
+                  <p className="text-sm text-zinc-500">Barcha USSD kodlarni bir bosishda nusxalang va tariflarni ko‘ring</p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {currentOp.ussdList.map((u) => (
+                <div className="flex flex-wrap gap-2.5">
+                  {UZ_OPERATORS.map((op) => (
                     <button
-                      key={u.code}
-                      onClick={() => copyText(u.code, u.title)}
-                      className={`p-3.5 rounded-2xl border text-left hover:border-blue-500 flex items-center justify-between ${subtleBg}`}
+                      key={op.id}
+                      onClick={() => setSelectedOperator(op.id)}
+                      className={`px-4 py-2.5 rounded-2xl text-sm font-bold transition ${
+                        selectedOperator === op.id ? `${op.color} shadow-md scale-102` : 'bg-[#F4F5F7] dark:bg-zinc-900'
+                      }`}
                     >
-                      <div>
-                        <div className="font-mono font-extrabold text-sm text-blue-600">{u.code}</div>
-                        <div className={`text-xs ${mutedText}`}>{u.title}</div>
-                      </div>
-                      <Copy className="w-4 h-4 text-slate-400" />
+                      {op.name}
                     </button>
                   ))}
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* ============================================================== */}
-          {/* 10. TELEFON MA'LUMOTNOMASI                                     */}
-          {/* ============================================================== */}
-          {activeSection === "directory" && (
-            <div className="space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold">Tashkilotlar va Muhim Raqamlar</h2>
-                  <p className={`text-xs ${mutedText}`}>
-                    Favqulodda xizmatlar, banklar, kommunal va transport idoralari.
-                  </p>
-                </div>
-                <input
-                  type="text"
-                  value={dirQuery}
-                  onChange={(e) => setDirQuery(e.target.value)}
-                  placeholder="Tashkilot yoki raqam..."
-                  className={`px-3.5 py-2 rounded-xl border text-xs w-full sm:w-64 ${cardBg}`}
-                />
-              </div>
+                {(() => {
+                  const op = UZ_OPERATORS.find((x) => x.id === selectedOperator) || UZ_OPERATORS[0];
+                  return (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="lg:col-span-2 space-y-4">
+                        <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                            <h2 className="text-xl font-bold">{op.name} — USSD Kodlar</h2>
+                            <a href={op.website} target="_blank" rel="noreferrer" className="text-xs text-blue-600 font-semibold flex items-center gap-1">
+                              Rasmiy sayt <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {op.ussdCodes.map((u) => (
+                              <div key={u.code} className="p-3.5 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between gap-2">
+                                <div>
+                                  <span className="font-mono font-bold text-base text-blue-600">{u.code}</span>
+                                  <p className="text-xs text-zinc-500 mt-0.5">{u.desc}</p>
+                                </div>
+                                <button
+                                  onClick={() => copyText(u.code, `USSD kod (${u.code})`)}
+                                  className="p-2 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 hover:bg-zinc-200 transition shrink-0"
+                                  title="Nusxalash"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  "Barchasi",
-                  "Favqulodda xizmatlar",
-                  "Banklar",
-                  "Davlat tashkilotlari",
-                  "Internet provayderlar",
-                  "Elektr energiyasi",
-                  "Gaz xizmati",
-                  "Suv ta'minoti",
-                  "Transport",
-                  "Aviakompaniyalar",
-                  "Universitetlar",
-                  "Shifoxona va klinikalar",
-                  "Yetkazib berish"
-                ].map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setDirCat(cat)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                      dirCat === cat ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {DIRECTORY_LIST.filter((d) => (dirCat === "Barchasi" ? true : d.category === dirCat))
-                  .filter((d) =>
-                    !dirQuery.trim()
-                      ? true
-                      : `${d.name} ${d.phone} ${d.category}`.toLowerCase().includes(dirQuery.toLowerCase())
-                  )
-                  .map((item) => (
-                    <div key={item.id} className={`p-5 rounded-3xl border shadow-sm flex flex-col justify-between space-y-3 ${cardBg}`}>
-                      <div>
-                        <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
-                          {item.category}
-                        </span>
-                        <h3 className="font-bold text-sm mt-2 mb-1">{item.name}</h3>
-                        <p className={`text-xs mb-2 ${mutedText}`}>{item.description}</p>
-                        <div className={`text-[11px] ${mutedText}`}>{item.address} • {item.hours}</div>
+                        <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+                          <h3 className="font-bold text-base mb-3">Mashhur Tariflar va Internet Paketlar</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {op.tariffs.map((t) => (
+                              <div key={t.name} className="p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800">
+                                <div className="flex justify-between font-bold text-sm">
+                                  <span>{t.name}</span>
+                                  <span className="text-emerald-600">{t.price}</span>
+                                </div>
+                                <p className="text-xs text-zinc-500 mt-1">{t.details}</p>
+                              </div>
+                            ))}
+                            {op.packages.map((p) => (
+                              <div key={p.name} className="p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800">
+                                <div className="flex justify-between font-bold text-sm">
+                                  <span>{p.name}</span>
+                                  <span className="text-blue-600">{p.price}</span>
+                                </div>
+                                <p className="text-xs text-zinc-500 mt-1">{p.validity}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-                        <a
-                          href={`tel:${item.phone.replace(/\s+/g, "")}`}
-                          className="flex-1 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-1.5"
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>{item.phone}</span>
-                        </a>
-                        <button
-                          onClick={() => copyText(item.phone, item.name)}
-                          className={`p-2 rounded-xl border ${cardBg}`}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
+
+                      <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 space-y-4">
+                        <h3 className="font-bold text-base">Qo‘llab-quvvatlash va Xizmatlar</h3>
+                        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800">
+                          <p className="text-xs text-zinc-500">Call-markaz:</p>
+                          <p className="font-bold text-sm mt-0.5">{op.support}</p>
+                        </div>
+                        <div className="space-y-2">
+                          {op.shortNumbers.map((s) => (
+                            <div key={s.code} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-white dark:bg-zinc-950">
+                              <span><b>{s.code}</b> — {s.desc}</span>
+                              <button onClick={() => copyText(s.code)} className="text-blue-600 font-semibold">Nusxa</button>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-zinc-500 mb-2">Qo‘shimcha xizmatlar:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {op.services.map((srv) => (
+                              <span key={srv} className="text-xs px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800">
+                                {srv}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                })()}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ============================================================== */}
-          {/* 11. YANGILIKLAR                                                */}
-          {/* ============================================================== */}
-          {activeSection === "news" && (
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-xl font-extrabold">Yangiliklar va Texnologiya</h2>
-                <p className={`text-xs ${mutedText}`}>
-                  O'zbekiston va jahon texnologiya, sun'iy intellekt va koinot yangiliklari.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {["Barchasi", "Texnologiya", "AI yangiliklari", "Smartfonlar", "Kompyuterlar", "Koinot", "O'zbekiston yangiliklari"].map(
-                  (cat) => (
+            {/* 10. ORGANIZATIONS & USEFUL PHONE NUMBERS */}
+            {activeSection === 'directory' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold">O‘zbekiston Tashkilotlari va Ishonch Telefonlari</h1>
+                    <p className="text-sm text-zinc-500">Tasdiqlangan favqulodda xizmatlar, banklar, kommunal va davlat tashkilotlari raqamlari</p>
+                  </div>
+                  <input
+                    type="text"
+                    value={dirSearch}
+                    onChange={(e) => setDirSearch(e.target.value)}
+                    placeholder="Tashkilot yoki raqam qidirish..."
+                    className="px-4 py-2 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 text-sm outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {['Barchasi', ...Array.from(new Set(UZ_DIRECTORY.map((d) => d.category)))].map((cat) => (
                     <button
                       key={cat}
-                      onClick={() => setNewsCat(cat)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                        newsCat === cat ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
+                      onClick={() => setDirCategory(cat)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                        dirCategory === cat ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-[#F4F5F7] dark:bg-zinc-900'
                       }`}
                     >
                       {cat}
                     </button>
-                  )
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {NEWS_ARTICLES.filter((n) => (newsCat === "Barchasi" ? true : n.category === newsCat)).map((n) => (
-                  <article key={n.id} className={`rounded-3xl border overflow-hidden shadow-sm flex flex-col justify-between ${cardBg}`}>
-                    <div>
-                      <img
-                        src={n.imageUrl}
-                        alt={n.title}
-                        onError={(e) => {
-                          e.currentTarget.src = LAPTOP_FALLBACK_SVG;
-                        }}
-                        className="w-full h-40 object-cover"
-                      />
-                      <div className="p-4">
-                        <span className="text-[10px] font-bold text-blue-600 uppercase">{n.category} • {n.date}</span>
-                        <h3 className="font-bold text-sm mt-1 mb-2">{n.title}</h3>
-                        <p className={`text-xs ${mutedText}`}>{n.summary}</p>
-                      </div>
-                    </div>
-                    <div className="px-4 pb-4 flex items-center justify-between">
-                      <a href={n.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 flex items-center gap-1">
-                        <span>Manba</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                      <button
-                        onClick={() =>
-                          toggleSaveBookmark({
-                            id: n.id,
-                            type: "Yangilik",
-                            title: n.title,
-                            subtitle: n.date,
-                            section: "news"
-                          })
-                        }
-                        className={`p-2 rounded-xl border ${cardBg}`}
-                      >
-                        <Bookmark className={`w-3.5 h-3.5 ${isSaved(n.id) ? "fill-blue-600 text-blue-600" : ""}`} />
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          )}
+                  ))}
+                </div>
 
-          {/* ============================================================== */}
-          {/* 12. FOYDALI VOSITALAR                                          */}
-          {/* ============================================================== */}
-          {activeSection === "tools" && (
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-xl font-extrabold">Foydali Kundalik Vositalar</h2>
-                <p className={`text-xs ${mutedText}`}>
-                  Ilmiy kalkulyator, valyuta va birlik konvertori, sekundomer, taymer, QR va parol generatori.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { id: "calc", label: "Kalkulyator" },
-                  { id: "curr", label: "Valyuta (UZS)" },
-                  { id: "unit", label: "Birliklar" },
-                  { id: "time", label: "Sekundomer / Taymer" },
-                  { id: "clock", label: "Jahon soati" },
-                  { id: "notes", label: "Eslatma / To-Do" },
-                  { id: "qr", label: "QR va Parol" },
-                  { id: "word", label: "So'z hisoblagich" }
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setToolTab(t.id)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold ${
-                      toolTab === t.id ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className={`p-6 rounded-3xl border shadow-sm ${cardBg}`}>
-                {toolTab === "calc" && (
-                  <div className="max-w-xs mx-auto space-y-3">
-                    <div className={`p-4 rounded-2xl text-right font-mono text-2xl font-bold ${subtleBg}`}>
-                      {calcExpr}
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {["C", "DEL", "sin", "cos", "7", "8", "9", "/", "4", "5", "6", "*", "1", "2", "3", "-", "0", ".", "=", "+"].map(
-                        (btn) => (
-                          <button
-                            key={btn}
-                            onClick={() => pressCalc(btn)}
-                            className={`py-3 rounded-xl font-bold text-xs ${
-                              btn === "=" ? "bg-blue-600 text-white" : subtleBg
-                            }`}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {UZ_DIRECTORY
+                    .filter((d) => (dirCategory === 'Barchasi' || d.category === dirCategory) && `${d.name} ${d.phone} ${d.description}`.toLowerCase().includes(dirSearch.toLowerCase()))
+                    .map((item) => (
+                      <div key={item.id} className="p-5 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600">{item.category}</span>
+                            <button
+                              onClick={() => toggleBookmark({ id: item.id, type: 'Raqam', title: `${item.name} — ${item.phone}`, subtitle: item.category, section: 'directory' })}
+                              className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                            >
+                              <Bookmark className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <h3 className="font-bold text-base mt-2">{item.name}</h3>
+                          <p className="text-xs text-zinc-500 mt-1">{item.description}</p>
+                          {item.address && <p className="text-[11px] text-zinc-400 mt-2">📍 {item.address}</p>}
+                          {item.hours && <p className="text-[11px] text-zinc-400">🕒 Ish vaqti: {item.hours}</p>}
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between gap-2">
+                          <a
+                            href={`tel:${item.phone.replace(/\s+/g, '')}`}
+                            className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-1.5"
                           >
-                            {btn}
+                            <PhoneCall className="w-3.5 h-3.5" /> {item.phone}
+                          </a>
+                          <button
+                            onClick={() => copyText(item.phone, 'Telefon raqami')}
+                            className="p-2 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
+                            title="Raqamni nusxalash"
+                          >
+                            <Copy className="w-4 h-4" />
                           </button>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {toolTab === "curr" && (
-                  <div className="max-w-md mx-auto space-y-3">
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="number"
-                        value={currVal}
-                        onChange={(e) => setCurrVal(e.target.value)}
-                        className={`px-3 py-2.5 rounded-xl border text-sm font-bold ${subtleBg}`}
-                      />
-                      <select
-                        value={currFrom}
-                        onChange={(e) => setCurrFrom(e.target.value)}
-                        className={`px-3 py-2.5 rounded-xl border text-sm font-bold ${subtleBg}`}
-                      >
-                        {Object.keys(ratesToUzs).map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                      <select
-                        value={currTo}
-                        onChange={(e) => setCurrTo(e.target.value)}
-                        className={`px-3 py-2.5 rounded-xl border text-sm font-bold ${subtleBg}`}
-                      >
-                        {Object.keys(ratesToUzs).map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className={`p-4 rounded-2xl text-center text-2xl font-extrabold text-blue-600 ${subtleBg}`}>
-                      {convertedCurr} {currTo}
-                    </div>
-                  </div>
-                )}
-
-                {toolTab === "unit" && (
-                  <div className="max-w-md mx-auto space-y-3">
-                    <div className="flex gap-2">
-                      {[
-                        { id: "length" as const, label: "Uzunlik", a: "km", b: "m" },
-                        { id: "weight" as const, label: "Og'irlik", a: "kg", b: "lb" },
-                        { id: "temp" as const, label: "Harorat", a: "C", b: "F" }
-                      ].map((u) => (
-                        <button
-                          key={u.id}
-                          onClick={() => {
-                            setUnitKind(u.id);
-                            setUnitFrom(u.a);
-                            setUnitTo(u.b);
-                          }}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                            unitKind === u.id ? "bg-blue-600 text-white" : subtleBg
-                          }`}
-                        >
-                          {u.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="number"
-                        value={unitNum}
-                        onChange={(e) => setUnitNum(e.target.value)}
-                        className={`px-3 py-2 rounded-xl border text-sm font-bold ${subtleBg}`}
-                      />
-                      <input
-                        type="text"
-                        value={unitFrom}
-                        readOnly
-                        className={`px-3 py-2 rounded-xl border text-sm text-center ${subtleBg}`}
-                      />
-                      <input
-                        type="text"
-                        value={unitTo}
-                        readOnly
-                        className={`px-3 py-2 rounded-xl border text-sm text-center ${subtleBg}`}
-                      />
-                    </div>
-                    <div className={`p-4 rounded-2xl text-center text-xl font-extrabold ${subtleBg}`}>
-                      {convertedUnitVal} {unitTo}
-                    </div>
-                  </div>
-                )}
-
-                {toolTab === "time" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
-                    <div className={`p-5 rounded-2xl space-y-3 ${subtleBg}`}>
-                      <div className="font-bold text-sm">Sekundomer</div>
-                      <div className="font-mono text-3xl font-extrabold">{(swTime / 1000).toFixed(1)} s</div>
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => setSwActive((s) => !s)}
-                          className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold"
-                        >
-                          {swActive ? "Pauza" : "Boshlash"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSwActive(false);
-                            setSwTime(0);
-                          }}
-                          className={`px-4 py-2 rounded-xl border text-xs font-bold ${cardBg}`}
-                        >
-                          Nolga
-                        </button>
-                      </div>
-                    </div>
-                    <div className={`p-5 rounded-2xl space-y-3 ${subtleBg}`}>
-                      <div className="font-bold text-sm">Taymer</div>
-                      <div className="font-mono text-3xl font-extrabold">{formatSec(timerLeft)}</div>
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => setTimerActive((t) => !t)}
-                          className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold"
-                        >
-                          {timerActive ? "To'xtatish" : "Start"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setTimerActive(false);
-                            setTimerLeft(300);
-                          }}
-                          className={`px-4 py-2 rounded-xl border text-xs font-bold ${cardBg}`}
-                        >
-                          5 daqiqa
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {toolTab === "clock" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    {[
-                      { label: "Samarqand / Toshkent", tz: "Asia/Tashkent" },
-                      { label: "London", tz: "Europe/London" },
-                      { label: "Nyu-York", tz: "America/New_York" },
-                      { label: "Tokio", tz: "Asia/Tokyo" }
-                    ].map((z) => (
-                      <div key={z.label} className={`p-4 rounded-2xl ${subtleBg}`}>
-                        <div className={`text-xs ${mutedText}`}>{z.label}</div>
-                        <div className="font-mono text-xl font-extrabold mt-1">
-                          {currentTime.toLocaleTimeString("uz-UZ", { timeZone: z.tz })}
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
+                </div>
+              </div>
+            )}
 
-                {toolTab === "notes" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <textarea
-                      rows={6}
-                      value={quickNotes}
-                      onChange={(e) => setQuickNotes(e.target.value)}
-                      className={`p-3.5 rounded-2xl border text-xs ${subtleBg}`}
-                    />
-                    <div className="space-y-2">
+            {/* 11. PRODUCTIVITY TOOLS */}
+            {activeSection === 'tools' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-2xl font-bold">Foydali Kundalik Vositalar</h1>
+                  <p className="text-sm text-zinc-500">Kalkulyator, valyuta konvertori, sekundomer, QR generator, parol yaratuvchi va bloknot</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'calc', label: 'Kalkulyator' },
+                    { id: 'currency', label: 'Valyuta (USD/UZS)' },
+                    { id: 'unit', label: 'O‘lchov birligi' },
+                    { id: 'timer', label: 'Sekundomer' },
+                    { id: 'notes', label: 'Bloknot & So‘z sanagich' },
+                    { id: 'todo', label: 'Vazifalar ro‘yxati' },
+                    { id: 'qr', label: 'QR Generator' },
+                    { id: 'password', label: 'Parol Generator' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setActiveTool(t.id as typeof activeTool)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-semibold ${
+                        activeTool === t.id ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-[#F4F5F7] dark:bg-zinc-900'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 max-w-2xl">
+                  {activeTool === 'calc' && (
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={calcExpr}
+                        readOnly
+                        placeholder="0"
+                        className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-950 text-right font-mono text-2xl font-bold border border-zinc-200 dark:border-zinc-800"
+                      />
+                      <div className="grid grid-cols-4 gap-2">
+                        {['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'].map((btn) => (
+                          <button
+                            key={btn}
+                            onClick={() => {
+                              if (btn === 'C') setCalcExpr('');
+                              else if (btn === '=') {
+                                try {
+                                  // Safe arithmetic evaluation
+                                  if (/^[0-9+\-*/.() ]+$/.test(calcExpr)) {
+                                    setCalcExpr(String(Function(`"use strict";return (${calcExpr})`)()));
+                                  }
+                                } catch {
+                                  setCalcExpr('Xato');
+                                }
+                              } else {
+                                setCalcExpr((prev) => prev + btn);
+                              }
+                            }}
+                            className="py-3.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 font-bold text-base hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          >
+                            {btn}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTool === 'currency' && (
+                    <div className="space-y-4">
+                      <h3 className="font-bold">USD → UZS Valyuta Konvertori (1 USD = {uzsRate.toLocaleString()} so‘m)</h3>
+                      <input
+                        type="number"
+                        value={usdAmount}
+                        onChange={(e) => setUsdAmount(e.target.value)}
+                        className="w-full p-3.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-lg font-bold"
+                      />
+                      <p className="text-2xl font-bold text-emerald-600">
+                        = {(Number(usdAmount || 0) * uzsRate).toLocaleString()} O‘zbekiston so‘mi
+                      </p>
+                    </div>
+                  )}
+
+                  {activeTool === 'unit' && (
+                    <div className="space-y-4">
+                      <h3 className="font-bold">Metr → Kilometr / Santimetr / Fut</h3>
+                      <input
+                        type="number"
+                        value={unitMeters}
+                        onChange={(e) => setUnitMeters(e.target.value)}
+                        className="w-full p-3.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 font-bold"
+                      />
+                      <div className="grid grid-cols-3 gap-3 text-sm">
+                        <div className="p-3 rounded-xl bg-white dark:bg-zinc-950"><b>{(Number(unitMeters) / 1000).toFixed(3)}</b> km</div>
+                        <div className="p-3 rounded-xl bg-white dark:bg-zinc-950"><b>{(Number(unitMeters) * 100).toLocaleString()}</b> sm</div>
+                        <div className="p-3 rounded-xl bg-white dark:bg-zinc-950"><b>{(Number(unitMeters) * 3.28084).toFixed(2)}</b> fut</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTool === 'timer' && (
+                    <div className="text-center space-y-4">
+                      <p className="text-4xl font-mono font-bold">
+                        {String(Math.floor(stopwatchSec / 60)).padStart(2, '0')}:{String(stopwatchSec % 60).padStart(2, '0')}
+                      </p>
+                      <div className="flex justify-center gap-3">
+                        <button onClick={() => setStopwatchRunning(!stopwatchRunning)} className="px-5 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold">
+                          {stopwatchRunning ? 'To‘xtatish' : 'Boshlash'}
+                        </button>
+                        <button onClick={() => { setStopwatchRunning(false); setStopwatchSec(0); }} className="px-5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-sm font-semibold">
+                          Nolga qaytarish
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTool === 'notes' && (
+                    <div className="space-y-3">
+                      <textarea
+                        rows={6}
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm outline-none"
+                      />
+                      <div className="flex justify-between text-xs text-zinc-500">
+                        <span>So‘zlar soni: <b>{noteText.trim() ? noteText.trim().split(/\s+/).length : 0}</b> • Belgilar: <b>{noteText.length}</b></span>
+                        <button onClick={() => copyText(noteText, 'Matn')} className="text-blue-600 font-semibold">Nusxalash</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTool === 'todo' && (
+                    <div className="space-y-4">
                       <form
                         onSubmit={(e) => {
                           e.preventDefault();
                           if (!todoInput.trim()) return;
-                          setTodoList((prev) => [...prev, { id: `td-${Date.now()}`, text: todoInput.trim(), done: false }]);
-                          setTodoInput("");
+                          setTodos((prev) => [{ id: `t-${Date.now()}`, text: todoInput.trim(), done: false }, ...prev]);
+                          setTodoInput('');
                         }}
                         className="flex gap-2"
                       >
@@ -4106,639 +2335,653 @@ export default function App() {
                           value={todoInput}
                           onChange={(e) => setTodoInput(e.target.value)}
                           placeholder="Yangi vazifa..."
-                          className={`flex-1 px-3 py-2 rounded-xl border text-xs ${subtleBg}`}
+                          className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm"
                         />
-                        <button type="submit" className="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold">
-                          Qo'shish
-                        </button>
+                        <button type="submit" className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold">Qo‘shish</button>
                       </form>
-                      {todoList.map((td) => (
-                        <div key={td.id} className={`p-2.5 rounded-xl flex items-center justify-between text-xs ${subtleBg}`}>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={td.done}
-                              onChange={() =>
-                                setTodoList((prev) =>
-                                  prev.map((x) => (x.id === td.id ? { ...x, done: !x.done } : x))
-                                )
-                              }
-                            />
-                            <span className={td.done ? "line-through opacity-60" : ""}>{td.text}</span>
-                          </label>
-                          <button onClick={() => setTodoList((prev) => prev.filter((x) => x.id !== td.id))}>
-                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {toolTab === "qr" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className={`p-4 rounded-2xl space-y-3 ${subtleBg}`}>
-                      <h4 className="font-bold text-sm">QR Kod Generatori</h4>
-                      <input
-                        type="text"
-                        value={qrValue}
-                        onChange={(e) => setQrValue(e.target.value)}
-                        className={`w-full px-3 py-2 rounded-xl border text-xs ${cardBg}`}
-                      />
-                      <div className="p-3 bg-white rounded-2xl inline-block border">
-                        <svg width="121" height="121" viewBox="0 0 11 11">
-                          {Array.from({ length: 121 }).map((_, idx) => {
-                            const x = idx % 11;
-                            const y = Math.floor(idx / 11);
-                            const v = (qrValue.charCodeAt(idx % Math.max(1, qrValue.length)) + x * 5 + y * 11) % 3;
-                            const corner = (x < 3 && y < 3) || (x > 7 && y < 3) || (x < 3 && y > 7);
-                            return <rect key={idx} x={x} y={y} width="1" height="1" fill={corner || v === 0 ? "#0f172a" : "#fff"} />;
-                          })}
-                        </svg>
+                      <div className="space-y-2">
+                        {todos.map((td) => (
+                          <div key={td.id} className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-950">
+                            <button
+                              onClick={() => setTodos((prev) => prev.map((x) => x.id === td.id ? { ...x, done: !x.done } : x))}
+                              className={`text-sm text-left ${td.done ? 'line-through text-zinc-400' : ''}`}
+                            >
+                              {td.done ? '✅' : '⬜'} {td.text}
+                            </button>
+                            <button onClick={() => setTodos((prev) => prev.filter((x) => x.id !== td.id))} className="text-zinc-400 hover:text-red-500">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
+                  )}
 
-                    <div className={`p-4 rounded-2xl space-y-3 ${subtleBg}`}>
-                      <h4 className="font-bold text-sm">Parol Generatori ({passLength} belgi)</h4>
+                  {activeTool === 'qr' && (
+                    <div className="space-y-4 text-center">
                       <input
-                        type="range"
-                        min={8}
-                        max={32}
-                        value={passLength}
-                        onChange={(e) => setPassLength(Number(e.target.value))}
+                        type="text"
+                        value={qrText}
+                        onChange={(e) => setQrText(e.target.value)}
+                        className="w-full p-3 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm"
                       />
-                      <label className="flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={passWithSymbols}
-                          onChange={(e) => setPassWithSymbols(e.target.checked)}
+                      {qrText && (
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrText)}`}
+                          alt="QR Code"
+                          className="mx-auto rounded-2xl border p-2 bg-white"
                         />
-                        Maxsus belgilar (!@#$%)
-                      </label>
-                      <div className={`p-3 rounded-xl font-mono text-xs font-bold flex items-center justify-between ${cardBg}`}>
-                        <span>{passOutput}</span>
-                        <button onClick={() => copyText(passOutput, "Parol")}>
-                          <Copy className="w-4 h-4 text-blue-600" />
+                      )}
+                    </div>
+                  )}
+
+                  {activeTool === 'password' && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+                        <span className="font-mono font-bold text-lg">{genPass}</span>
+                        <button onClick={() => copyText(genPass, 'Parol')} className="p-2 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900">
+                          <Copy className="w-4 h-4" />
                         </button>
                       </div>
                       <button
                         onClick={() => {
-                          const base = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-                          const pool = passWithSymbols ? base + "!@#$%^&*" : base;
-                          let res = "";
-                          for (let i = 0; i < passLength; i++) {
-                            res += pool[Math.floor(Math.random() * pool.length)];
-                          }
-                          setPassOutput(res);
+                          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+                          let p = '';
+                          for (let i = 0; i < 16; i++) p += chars[Math.floor(Math.random() * chars.length)];
+                          setGenPass(p);
                         }}
-                        className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold"
+                        className="px-4 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold"
                       >
-                        Yangi parol yaratish
+                        Yangi kuchli parol yaratish
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {toolTab === "word" && (
-                  <div className="space-y-3">
-                    <div className="text-xs font-bold text-blue-600">
-                      So'zlar: {wordText.trim() ? wordText.trim().split(/\s+/).length : 0} • Belgilar: {wordText.length}
-                    </div>
-                    <textarea
-                      rows={6}
-                      value={wordText}
-                      onChange={(e) => setWordText(e.target.value)}
-                      className={`w-full p-4 rounded-2xl border text-xs sm:text-sm ${subtleBg}`}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ============================================================== */}
-          {/* 13. AI VOSITALAR KATALOGI                                      */}
-          {/* ============================================================== */}
-          {activeSection === "aitools" && (
-            <div className="space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold">Foydali AI Vositalar Katalogi</h2>
-                  <p className={`text-xs ${mutedText}`}>
-                    Matn, dizayn, dasturlash va qidiruv uchun eng yaxshi AI platformalar.
-                  </p>
+                  )}
                 </div>
-                <input
-                  type="text"
-                  value={aiToolQuery}
-                  onChange={(e) => setAiToolQuery(e.target.value)}
-                  placeholder="AI vosita qidirish..."
-                  className={`px-3.5 py-2 rounded-xl border text-xs ${cardBg}`}
-                />
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {["Barchasi", "Matn va Yordamchi", "Dasturlash va Tahlil", "Rasm va Dizayn", "Qidiruv va Tadqiqot"].map(
-                  (cat) => (
+            )}
+
+            {/* 12. NEWS */}
+            {activeSection === 'news' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-2xl font-bold">Texnologiya va Dunyo Yangiliklari</h1>
+                  <p className="text-sm text-zinc-500">AI, smartfonlar, kompyuterlar va O‘zbekiston IT yangiliklari</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {['Barchasi', 'AI yangiliklari', 'O‘zbekiston', 'Smartfonlar', 'Kompyuterlar', 'Koinot', 'Texnologiya'].map((cat) => (
                     <button
                       key={cat}
-                      onClick={() => setAiToolCat(cat)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                        aiToolCat === cat ? "bg-slate-900 text-white dark:bg-blue-600" : subtleBg
+                      onClick={() => setNewsCategory(cat)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold ${
+                        newsCategory === cat ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-[#F4F5F7] dark:bg-zinc-900'
                       }`}
                     >
                       {cat}
                     </button>
-                  )
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {AI_TOOLS_LIST.filter((t) => (aiToolCat === "Barchasi" ? true : t.category === aiToolCat))
-                  .filter((t) =>
-                    !aiToolQuery.trim()
-                      ? true
-                      : `${t.name} ${t.description}`.toLowerCase().includes(aiToolQuery.toLowerCase())
-                  )
-                  .map((tool) => (
-                    <div key={tool.id} className={`p-5 rounded-3xl border shadow-sm flex flex-col justify-between space-y-3 ${cardBg}`}>
-                      <div>
-                        <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
-                          {tool.category}
-                        </span>
-                        <h3 className="font-bold text-sm mt-2 mb-1">{tool.name}</h3>
-                        <p className={`text-xs ${mutedText}`}>{tool.description}</p>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {NEWS_ITEMS
+                    .filter((n) => newsCategory === 'Barchasi' || n.category === newsCategory)
+                    .map((news) => (
+                      <div key={news.id} className="rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 overflow-hidden flex flex-col">
+                        <img src={news.image} alt={news.title} className="w-full h-44 object-cover" />
+                        <div className="p-5 flex-1 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[11px] font-bold text-blue-600">{news.category} • {news.date}</span>
+                            <h3 className="font-bold text-base mt-1">{news.title}</h3>
+                            <p className="text-xs text-zinc-500 mt-2">{news.summary}</p>
+                          </div>
+                          <div className="mt-4 pt-3 border-t border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between">
+                            <span className="text-xs text-zinc-400">{news.source}</span>
+                            <a href={news.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-600 flex items-center gap-1">
+                              O‘qish <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        </div>
                       </div>
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                        <span className="font-semibold text-emerald-600">{tool.pricing}</span>
-                        <a href={tool.url} target="_blank" rel="noreferrer" className="font-bold text-blue-600 flex items-center gap-1">
-                          <span>Ochish</span>
-                          <ExternalLink className="w-3 h-3" />
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* 13. AI TOOLS DIRECTORY */}
+            {activeSection === 'ai-tools' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold">AI Vositalar Katalogi</h1>
+                    <p className="text-sm text-zinc-500">Ish, o‘qish va ijod uchun eng foydali sun’iy intellekt platformalari</p>
+                  </div>
+                  <input
+                    type="text"
+                    value={aiToolSearch}
+                    onChange={(e) => setAiToolSearch(e.target.value)}
+                    placeholder="AI vosita qidirish..."
+                    className="px-4 py-2 rounded-xl bg-[#F4F5F7] dark:bg-zinc-900 text-sm outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {['Barchasi', 'Matn va Muloqot', 'Dasturlash', 'Rasm yaratish', 'Qidiruv va Tadqiqot', 'Audio va Ovoz', 'Samaradorlik'].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setAiToolCat(cat)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold ${
+                        aiToolCat === cat ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-[#F4F5F7] dark:bg-zinc-900'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {AI_TOOLS_DIR
+                    .filter((t) => (aiToolCat === 'Barchasi' || t.category === aiToolCat) && `${t.name} ${t.description}`.toLowerCase().includes(aiToolSearch.toLowerCase()))
+                    .map((tool) => (
+                      <div key={tool.id} className="p-5 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-purple-600">{tool.category}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">{tool.pricing}</span>
+                          </div>
+                          <h3 className="font-bold text-base mt-2">{tool.name}</h3>
+                          <p className="text-xs text-zinc-500 mt-1.5">{tool.description}</p>
+                        </div>
+                        <a
+                          href={tool.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 py-2 px-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold flex items-center justify-center gap-1.5"
+                        >
+                          Saytga o‘tish <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                       </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* 14. BOOKMARKS */}
+            {activeSection === 'bookmarks' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-2xl font-bold">Saqlanganlar (Xatcho‘plar)</h1>
+                  <p className="text-sm text-zinc-500">Saqlangan rasmlar, qurilmalar, maqolalar va foydali telefon raqamlar</p>
+                </div>
+
+                {bookmarks.length === 0 ? (
+                  <div className="p-12 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 text-center text-sm text-zinc-500">
+                    Hozircha saqlangan elementlar yo‘q.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {bookmarks.map((b) => (
+                      <div key={b.id} className="p-4 rounded-2xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between">
+                        <button onClick={() => navigateTo(b.section)} className="text-left">
+                          <span className="text-[10px] font-bold text-blue-600 uppercase">{b.type}</span>
+                          <p className="font-bold text-sm mt-0.5">{b.title}</p>
+                          <p className="text-xs text-zinc-500">{b.subtitle}</p>
+                        </button>
+                        <button onClick={() => setBookmarks((prev) => prev.filter((x) => x.id !== b.id))} className="p-2 text-zinc-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 15. PROFILE */}
+            {activeSection === 'profile' && (
+              <div className="max-w-2xl space-y-6">
+                <h1 className="text-2xl font-bold">Shaxsiy Profil</h1>
+                {user ? (
+                  <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 space-y-4">
+                    <div className="flex items-center gap-4">
+                      {user.avatar ? (
+                        <img src={user.avatar} alt={user.name} className="w-16 h-16 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-xl font-bold">
+                          {user.name.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <h2 className="text-xl font-bold">{user.name}</h2>
+                        <p className="text-sm text-zinc-500">{user.email || user.phone}</p>
+                        <span className="inline-block mt-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">
+                          Tasdiqlangan akkaunt ({user.provider === 'phone' ? 'Telefon SMS' : 'Google OAuth'})
+                        </span>
+                      </div>
                     </div>
-                  ))}
+                    <div className="grid grid-cols-3 gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-800 text-center">
+                      <div className="p-3 rounded-2xl bg-white dark:bg-zinc-950">
+                        <p className="text-xl font-bold">{bookmarks.length}</p>
+                        <p className="text-xs text-zinc-500">Saqlanganlar</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-white dark:bg-zinc-950">
+                        <p className="text-xl font-bold">{tracks.filter((t) => t.isCustom).length}</p>
+                        <p className="text-xs text-zinc-500">Shaxsiy musiqalar</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-white dark:bg-zinc-950">
+                        <p className="text-xl font-bold">{events.length}</p>
+                        <p className="text-xs text-zinc-500">Tadbirlar</p>
+                      </div>
+                    </div>
+                    <button onClick={handleLogout} className="px-4 py-2.5 rounded-xl bg-red-600 text-white text-xs font-semibold">
+                      Akkauntdan chiqish
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-8 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-center space-y-4">
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                      Google akkauntingiz yoki O‘zbekiston (+998) telefon raqamingiz orqali tizimga kiring.
+                    </p>
+                    <button
+                      onClick={() => { setAuthError(null); setAuthModalOpen(true); }}
+                      className="px-6 py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold"
+                    >
+                      Kirish / Ro‘yxatdan o‘tish
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 16. SETTINGS */}
+            {activeSection === 'settings' && (
+              <div className="max-w-2xl space-y-6">
+                <h1 className="text-2xl font-bold">Platforma Sozlamalari</h1>
+                <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-sm">Tungi rejim (Dark Mode)</p>
+                      <p className="text-xs text-zinc-500">Standart holatda toza oq (#FFFFFF) rejim yoqilgan</p>
+                    </div>
+                    <button
+                      onClick={() => setDarkMode(!darkMode)}
+                      className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold"
+                    >
+                      {darkMode ? 'Oq rejimga o‘tish' : 'Tungi rejimga o‘tish'}
+                    </button>
+                  </div>
+                  <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                    <p className="font-semibold text-sm mb-1">Backend & Auth Holati</p>
+                    <p className="text-xs text-zinc-500">
+                      Supabase ulanishi: {supabase ? <span className="text-emerald-600 font-bold">Faol (Connected)</span> : <span className="text-amber-600 font-bold">Kalitlar kutilmoqda</span>}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 17. CONTACT (@roz1matoff_me) */}
+            {activeSection === 'contact' && (
+              <div className="max-w-2xl space-y-6">
+                <div>
+                  <h1 className="text-2xl font-bold">Aloqa va Qo‘llab-quvvatlash</h1>
+                  <p className="text-sm text-zinc-500">Takliflar, hamkorlik va texnik savollar uchun bevosita bog‘laning</p>
+                </div>
+
+                <div className="p-6 rounded-3xl bg-[#F8F9FA] dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200/70 dark:border-zinc-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center">
+                        <Send className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-500">Rasmiy Telegram aloqa</p>
+                        <p className="font-bold text-lg">@roz1matoff_me</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => copyText('@roz1matoff_me', 'Telegram username')}
+                        className="px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Nusxalash
+                      </button>
+                      <a
+                        href="https://t.me/roz1matoff_me"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2 rounded-xl bg-sky-500 text-white text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        Telegramda yozish <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!contactMsg.trim()) return;
+                      window.open(`https://t.me/roz1matoff_me?text=${encodeURIComponent(`Ism: ${contactName || 'Foydalanuvchi'}\nXabar: ${contactMsg}`)}`, '_blank');
+                      setContactName('');
+                      setContactMsg('');
+                    }}
+                    className="space-y-3"
+                  >
+                    <input
+                      type="text"
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      placeholder="Ismingiz"
+                      className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm outline-none"
+                    />
+                    <textarea
+                      rows={4}
+                      value={contactMsg}
+                      onChange={(e) => setContactMsg(e.target.value)}
+                      placeholder="Xabaringizni yozing — Telegram orqali yuboriladi..."
+                      className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm outline-none"
+                      required
+                    />
+                    <button type="submit" className="px-5 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold">
+                      Telegram orqali yuborish
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* STICKY MUSIC PLAYER BAR */}
+          {currentTrack && (
+            <div className="fixed bottom-0 left-0 lg:left-64 right-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-t border-zinc-200/80 dark:border-zinc-800 px-4 lg:px-8 py-2.5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={currentTrack.cover} alt={currentTrack.title} className="w-10 h-10 rounded-xl object-cover" />
+                <div className="min-w-0">
+                  <p className="font-bold text-xs truncate">{currentTrack.title}</p>
+                  <p className="text-[11px] text-zinc-500 truncate">{currentTrack.artist}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setCurrentTrackIndex((i) => (i - 1 + tracks.length) % tracks.length)}
+                  className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                >
+                  <SkipBack className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className="w-10 h-10 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center shadow-sm"
+                >
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                </button>
+                <button
+                  onClick={() => setCurrentTrackIndex((i) => (i + 1) % tracks.length)}
+                  className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                >
+                  <SkipForward className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2">
+                <button onClick={() => setMuted(!muted)} className="p-1.5">
+                  {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={muted ? 0 : volume}
+                  onChange={(e) => { setMuted(false); setVolume(Number(e.target.value)); }}
+                  className="w-20 accent-zinc-900 dark:accent-white"
+                />
               </div>
             </div>
           )}
+        </div>
 
-          {/* ============================================================== */}
-          {/* 14. SAQLANGANLAR                                               */}
-          {/* ============================================================== */}
-          {activeSection === "bookmarks" && (
-            <div className="space-y-5">
-              <h2 className="text-xl font-extrabold">Saqlangan Kontentlar ({bookmarks.length})</h2>
-              {bookmarks.length === 0 ? (
-                <div className={`p-8 rounded-3xl border text-center text-xs ${cardBg} ${mutedText}`}>
-                  Hozircha saqlangan elementlar yo'q.
+        {/* --- MODALS --- */}
+
+        {/* AUTH MODAL (Google OAuth & +998 SMS OTP) */}
+        {authModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-md w-full p-6 border border-zinc-200 dark:border-zinc-800 shadow-2xl space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">VerMix’ga Kirish</h2>
+                <button onClick={() => setAuthModalOpen(false)} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F5F7] dark:bg-zinc-800">
+                <button
+                  onClick={() => { setAuthTab('google'); setAuthError(null); }}
+                  className={`py-2 rounded-lg text-xs font-semibold ${authTab === 'google' ? 'bg-white dark:bg-zinc-950 shadow-2xs' : ''}`}
+                >
+                  Google Akkaunt
+                </button>
+                <button
+                  onClick={() => { setAuthTab('phone'); setAuthError(null); }}
+                  className={`py-2 rounded-lg text-xs font-semibold ${authTab === 'phone' ? 'bg-white dark:bg-zinc-950 shadow-2xs' : ''}`}
+                >
+                  Telefon (+998 SMS)
+                </button>
+              </div>
+
+              {authError && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 text-xs leading-relaxed">
+                  {authError}
+                </div>
+              )}
+
+              {authTab === 'google' ? (
+                <div className="space-y-4">
+                  <p className="text-xs text-zinc-500">
+                    Google akkauntingiz orqali bir bosishda xavfsiz tizimga kiring.
+                  </p>
+                  <button
+                    onClick={handleGoogleLogin}
+                    disabled={authLoading}
+                    className="w-full py-3 px-4 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold flex items-center justify-center gap-2.5 hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Globe className="w-4 h-4" />
+                    {authLoading ? 'Yo‘naltirilmoqda...' : 'Google bilan davom etish'}
+                  </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {bookmarks.map((b) => (
-                    <div key={b.id} className={`p-4 rounded-2xl border shadow-sm flex items-center justify-between gap-2 ${cardBg}`}>
-                      <div onClick={() => setActiveSection(b.section)} className="min-w-0 flex-1 cursor-pointer">
-                        <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold">{b.type}</span>
-                        <div className="font-bold text-xs truncate mt-1">{b.title}</div>
-                        <div className={`text-[11px] truncate ${mutedText}`}>{b.subtitle}</div>
+                <div className="space-y-4">
+                  {!otpSent ? (
+                    <>
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-500 block mb-1.5">O‘zbekiston telefon raqami</label>
+                        <div className="flex items-center rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-[#F8F9FA] dark:bg-zinc-950">
+                          <span className="px-3.5 py-2.5 text-sm font-bold border-r border-zinc-200 dark:border-zinc-800">+998</span>
+                          <input
+                            type="tel"
+                            value={phoneInput}
+                            onChange={(e) => setPhoneInput(e.target.value)}
+                            placeholder="90 123 45 67"
+                            className="flex-1 px-3.5 py-2.5 text-sm bg-transparent outline-none"
+                          />
+                        </div>
                       </div>
                       <button
-                        onClick={() => setBookmarks((prev) => prev.filter((x) => x.id !== b.id))}
-                        className="p-2 text-rose-600"
+                        onClick={handleSendOtp}
+                        disabled={authLoading}
+                        className="w-full py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold disabled:opacity-50"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {authLoading ? 'SMS yuborilmoqda...' : 'SMS kod yuborish'}
                       </button>
-                    </div>
-                  ))}
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-500 block mb-1.5">Telefoningizga kelgan 6 xonali kod</label>
+                        <input
+                          type="text"
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value)}
+                          placeholder="123456"
+                          className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-center font-mono text-lg tracking-widest bg-[#F8F9FA] dark:bg-zinc-950 outline-none"
+                        />
+                      </div>
+                      <button
+                        onClick={handleVerifyOtp}
+                        disabled={authLoading}
+                        className="w-full py-3 rounded-xl bg-emerald-600 text-white text-sm font-semibold disabled:opacity-50"
+                      >
+                        {authLoading ? 'Tekshirilmoqda...' : 'Kodni tasdiqlash'}
+                      </button>
+                      <button onClick={() => setOtpSent(false)} className="w-full text-xs text-zinc-500 underline">
+                        Raqamni o‘zgartirish
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
-          )}
-
-          {/* ============================================================== */}
-          {/* 15. PROFIL (GOOGLE & +998 PHONE AUTH)                          */}
-          {/* ============================================================== */}
-          {activeSection === "profile" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              <div className={`p-6 rounded-3xl border shadow-sm space-y-4 ${cardBg}`}>
-                <div className="flex items-center gap-3.5">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white text-2xl font-extrabold flex items-center justify-center">
-                    {auth.avatarLetter}
-                  </div>
-                  <div>
-                    <h2 className="font-extrabold text-base">{auth.name}</h2>
-                    <p className={`text-xs ${mutedText}`}>{auth.identifier}</p>
-                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
-                      {auth.provider === "google"
-                        ? "Google orqali tasdiqlangan"
-                        : auth.provider === "phone"
-                        ? "Telefon (+998) tasdiqlangan"
-                        : "Mehmon rejimi"}
-                    </span>
-                  </div>
-                </div>
-
-                {auth.isAuthenticated ? (
-                  <button
-                    onClick={() => {
-                      setAuth({
-                        isAuthenticated: false,
-                        provider: "guest",
-                        name: "Mehmon Foydalanuvchi",
-                        identifier: "Hisobga kirilmagan",
-                        avatarLetter: "V"
-                      });
-                      notify("Tizimdan chiqildi");
-                    }}
-                    className="w-full py-2.5 rounded-xl bg-rose-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Chiqish
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setAuthModalOpen(true)}
-                    className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    Google yoki Telefon orqali kirish
-                  </button>
-                )}
-              </div>
-
-              <div className={`lg:col-span-2 p-6 rounded-3xl border shadow-sm space-y-4 ${cardBg}`}>
-                <h3 className="font-bold text-sm">Akkaunt statistikasi va qidiruv tarixi</h3>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className={`p-4 rounded-2xl ${subtleBg}`}>
-                    <div className="text-xl font-extrabold">{bookmarks.length}</div>
-                    <div className={`text-xs ${mutedText}`}>Saqlanganlar</div>
-                  </div>
-                  <div className={`p-4 rounded-2xl ${subtleBg}`}>
-                    <div className="text-xl font-extrabold">{tracks.filter((t) => t.isCustom).length}</div>
-                    <div className={`text-xs ${mutedText}`}>Shaxsiy musiqa</div>
-                  </div>
-                  <div className={`p-4 rounded-2xl ${subtleBg}`}>
-                    <div className="text-xl font-extrabold">{calEvents.length}</div>
-                    <div className={`text-xs ${mutedText}`}>Kalendar rejalari</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-bold mb-2">So'nggi qidiruvlar:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {searchHistory.map((item, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setGlobalSearch(item)}
-                        className={`px-3 py-1 rounded-full text-xs ${subtleBg}`}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ============================================================== */}
-          {/* 16. ALOQA (CONTACT SECTION WITH @roz1matoff_me)                */}
-          {/* ============================================================== */}
-          {activeSection === "contact" && (
-            <div className="max-w-3xl mx-auto space-y-5">
-              <div className={`p-6 rounded-3xl border shadow-sm space-y-4 ${cardBg}`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <span className="px-3 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-bold">
-                      Aloqa va Qo'llab-quvvatlash
-                    </span>
-                    <h2 className="text-xl font-extrabold mt-2">VerMix Loyihasi Bilan Bog'lanish</h2>
-                    <p className={`text-xs mt-1 ${mutedText}`}>
-                      Takliflar, hamkorlik yoki texnik savollar uchun bevosita Telegram orqali murojaat qiling.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      href="https://t.me/roz1matoff_me"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-4 py-2.5 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold flex items-center gap-2 shadow-sm"
-                    >
-                      <Send className="w-4 h-4" />
-                      <span>Telegram: @roz1matoff_me</span>
-                    </a>
-                    <button
-                      onClick={() => copyText("@roz1matoff_me", "Telegram username")}
-                      className={`px-3.5 py-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-1.5 ${cardBg}`}
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Nusxalash</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!contactName.trim() || !contactMsg.trim()) return;
-                  notify("Xabaringiz tayyorlandi! Telegram (@roz1matoff_me) orqali yuborishingiz mumkin.");
-                  setContactName("");
-                  setContactMsg("");
-                }}
-                className={`p-6 rounded-3xl border shadow-sm space-y-3 ${cardBg}`}
-              >
-                <h3 className="font-bold text-sm">Tezkor xabar qoldirish</h3>
-                <input
-                  type="text"
-                  required
-                  value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
-                  placeholder="Ismingiz yoki Telegram username..."
-                  className={`w-full px-4 py-2.5 rounded-xl border text-xs ${subtleBg}`}
-                />
-                <textarea
-                  rows={4}
-                  required
-                  value={contactMsg}
-                  onChange={(e) => setContactMsg(e.target.value)}
-                  placeholder="Xabaringiz mazmuni..."
-                  className={`w-full px-4 py-2.5 rounded-xl border text-xs ${subtleBg}`}
-                />
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold"
-                  >
-                    Xabarni yuborish
-                  </button>
-                  <a
-                    href="https://t.me/roz1matoff_me"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-bold text-sky-600 hover:underline"
-                  >
-                    To'g'ridan-to'g'ri t.me/roz1matoff_me ga o'tish →
-                  </a>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* ============================================================== */}
-          {/* 17. SOZLAMALAR & RAILWAY DEPLOYMENT GUIDE                      */}
-          {/* ============================================================== */}
-          {activeSection === "settings" && (
-            <div className="max-w-2xl space-y-4">
-              <h2 className="text-xl font-extrabold">Sozlamalar va Railway Joylash Qo'llanmasi</h2>
-              <div className={`p-5 rounded-3xl border shadow-sm space-y-4 ${cardBg}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-sm">Interfeys mavzusi</div>
-                    <div className={`text-xs ${mutedText}`}>Standart: Sof oq (#FFFFFF)</div>
-                  </div>
-                  <button
-                    onClick={() => setDarkMode((d) => !d)}
-                    className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold"
-                  >
-                    {darkMode ? "Oq rejimga o'tish" : "Tungi rejimga o'tish"}
-                  </button>
-                </div>
-
-                <div className={`p-4 rounded-2xl space-y-2 text-xs ${subtleBg}`}>
-                  <div className="font-bold text-sm flex items-center gap-1.5">
-                    <Shield className="w-4 h-4 text-blue-600" />
-                    Railway.app va Haqiqiy Auth (Google + SMS) sozlamalari
-                  </div>
-                  <p className={mutedText}>
-                    Loyihani Railway serveriga joylaganingizda haqiqiy Google OAuth va +998 SMS OTP ishlashi uchun Railway Variables bo'limiga quyidagi kalitlarni qo'shing:
-                  </p>
-                  <pre className="p-3 rounded-xl bg-slate-900 text-slate-100 text-[11px] overflow-x-auto">
-{`VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-public-anon-key
-GEMINI_API_KEY=your-server-gemini-key`}
-                  </pre>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <div className="text-xs font-bold">Mahalliy keshni tozalash</div>
-                  <button
-                    onClick={() => {
-                      try {
-                        window.localStorage.clear();
-                      } catch {}
-                      notify("Barcha ma'lumotlar tozalandi");
-                      window.setTimeout(() => window.location.reload(), 700);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-semibold"
-                  >
-                    Tozalash
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-
-      {/* ================================================================== */}
-      {/* AUTHENTICATION MODAL (GOOGLE & +998 PHONE NUMBER OTP)              */}
-      {/* ================================================================== */}
-      {authModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className={`max-w-md w-full rounded-3xl border p-6 shadow-2xl space-y-4 ${cardBg}`}>
-            <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-base">VerMix Hisobga Kirish</h3>
-              <button onClick={() => setAuthModalOpen(false)} className="p-1.5 rounded-xl hover:bg-slate-100">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
-              <button
-                onClick={() => {
-                  setAuthTab("google");
-                  setAuthError("");
-                }}
-                className={`py-2 rounded-xl text-xs font-bold transition ${
-                  authTab === "google" ? "bg-white dark:bg-slate-900 shadow-sm" : ""
-                }`}
-              >
-                Google orqali
-              </button>
-              <button
-                onClick={() => {
-                  setAuthTab("phone");
-                  setAuthError("");
-                }}
-                className={`py-2 rounded-xl text-xs font-bold transition ${
-                  authTab === "phone" ? "bg-white dark:bg-slate-900 shadow-sm" : ""
-                }`}
-              >
-                Telefon (+998)
-              </button>
-            </div>
-
-            {authTab === "google" ? (
-              <form onSubmit={handleGoogleAuth} className="space-y-3">
-                <p className={`text-xs ${mutedText}`}>
-                  Google akkauntingiz ma'lumotlarini kiriting va shaxsiy kabinetga kiring.
-                </p>
-                <input
-                  type="text"
-                  value={googleNameInput}
-                  onChange={(e) => setGoogleNameInput(e.target.value)}
-                  placeholder="Ismingiz (masalan: Azizbek)"
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs ${subtleBg}`}
-                />
-                <input
-                  type="email"
-                  required
-                  value={googleEmailInput}
-                  onChange={(e) => setGoogleEmailInput(e.target.value)}
-                  placeholder="example@gmail.com"
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs ${subtleBg}`}
-                />
-                {authError && <p className="text-xs text-rose-600">{authError}</p>}
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-bold flex items-center justify-center gap-2"
-                >
-                  <Globe className="w-4 h-4" />
-                  Google bilan davom etish
-                </button>
-              </form>
-            ) : !otpSent ? (
-              <form onSubmit={handleSendOtp} className="space-y-3">
-                <p className={`text-xs ${mutedText}`}>
-                  O'zbekiston telefon raqamingizni kiriting — SMS tasdiqlash kodi yuboriladi.
-                </p>
-                <input
-                  type="tel"
-                  required
-                  value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value)}
-                  placeholder="+998 90 123 45 67"
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono ${subtleBg}`}
-                />
-                {authError && <p className="text-xs text-rose-600">{authError}</p>}
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold"
-                >
-                  SMS kod olish
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-3">
-                <p className={`text-xs ${mutedText}`}>
-                  <strong>{phoneInput}</strong> raqamiga yuborilgan 4 xonali kodni kiriting (Demo kod: <strong>{demoOtpCode}</strong>).
-                </p>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  value={otpInput}
-                  onChange={(e) => setOtpInput(e.target.value)}
-                  placeholder="4 xonali kod"
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-center font-mono text-base font-bold ${subtleBg}`}
-                />
-                {authError && <p className="text-xs text-rose-600">{authError}</p>}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOtpSent(false)}
-                    className={`flex-1 py-2.5 rounded-xl border text-xs font-semibold ${cardBg}`}
-                  >
-                    Orqaga
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold"
-                  >
-                    Tasdiqlash
-                  </button>
-                </div>
-              </form>
-            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ================================================================== */}
-      {/* PERSISTENT BOTTOM MINI MUSIC PLAYER                                */}
-      {/* ================================================================== */}
-      <footer
-        className={`fixed bottom-0 left-0 right-0 lg:left-64 z-30 border-t backdrop-blur-md px-4 py-2.5 ${
-          darkMode ? "bg-slate-900/95 border-slate-800" : "bg-white/95 border-slate-200"
-        }`}
-      >
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <img
-              src={currentTrack.coverUrl}
-              alt={currentTrack.title}
-              onError={(e) => {
-                e.currentTarget.src = LAPTOP_FALLBACK_SVG;
-              }}
-              className="w-10 h-10 rounded-xl object-cover shrink-0"
-            />
-            <div className="min-w-0">
-              <div className="text-xs font-bold truncate">{currentTrack.title}</div>
-              <div className={`text-[11px] truncate ${mutedText}`}>{currentTrack.artist}</div>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center gap-1 flex-1 max-w-md">
-            <div className="flex items-center gap-3">
-              <button onClick={playPrevTrack} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                <SkipBack className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setIsPlaying((p) => !p)}
-                className="w-9 h-9 rounded-full bg-slate-900 dark:bg-blue-600 text-white flex items-center justify-center shadow-sm"
-              >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-              </button>
-              <button onClick={playNextTrack} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                <SkipForward className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="w-full hidden sm:flex items-center gap-2 text-[10px] font-mono">
-              <span>{formatSec(progressSec)}</span>
+        {/* ADD CUSTOM MUSIC MODAL */}
+        {addMusicModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <form onSubmit={handleAddCustomTrack} className="bg-white dark:bg-zinc-900 rounded-3xl max-w-md w-full p-6 border border-zinc-200 dark:border-zinc-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">O‘zingiz xohlagan musiqani qo‘shish</h2>
+                <button type="button" onClick={() => setAddMusicModal(false)}><X className="w-5 h-5" /></button>
+              </div>
               <input
-                type="range"
-                min={0}
-                max={Math.max(1, currentTrack.durationSec)}
-                value={progressSec}
-                onChange={(e) => {
-                  const nextSec = Number(e.target.value);
-                  setProgressSec(nextSec);
-                  if (htmlAudioRef.current && currentTrack.audioUrl) {
-                    htmlAudioRef.current.currentTime = nextSec;
-                  }
-                }}
-                className="flex-1 h-1 accent-blue-600 cursor-pointer"
+                type="text"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                placeholder="Qo‘shiq nomi *"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-950 text-sm outline-none"
+                required
               />
-              <span>{formatSec(currentTrack.durationSec)}</span>
+              <input
+                type="text"
+                value={customArtist}
+                onChange={(e) => setCustomArtist(e.target.value)}
+                placeholder="Ijrochi nomi"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-950 text-sm outline-none"
+              />
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-zinc-500">Kompyuter/telefondan audio fayl tanlang (MP3/WAV):</label>
+                <input type="file" accept="audio/*" onChange={handleCustomAudioFile} className="text-xs" />
+                <input
+                  type="url"
+                  value={customAudioUrl}
+                  onChange={(e) => setCustomAudioUrl(e.target.value)}
+                  placeholder="Yoki to‘g‘ridan-to‘g‘ri MP3 havola kiriting..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-950 text-sm outline-none"
+                  required
+                />
+              </div>
+              <input
+                type="url"
+                value={customCoverUrl}
+                onChange={(e) => setCustomCoverUrl(e.target.value)}
+                placeholder="Muqova rasmi havolasi (ixtiyoriy)"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-950 text-sm outline-none"
+              />
+              <button type="submit" className="w-full py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold">
+                Pleylistga qo‘shish va tinglash
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ADD PIN MODAL */}
+        {newPinModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newPinTitle.trim() || !newPinUrl.trim()) return;
+                setPins((prev) => [{
+                  id: `p-${Date.now()}`, title: newPinTitle.trim(), category: newPinCat,
+                  image: newPinUrl.trim(), author: user?.name || 'Foydalanuvchi', likes: 1, board: newPinCat
+                }, ...prev]);
+                setNewPinModal(false);
+                setNewPinTitle('');
+                setNewPinUrl('');
+                showToast('Rasm galereyaga qo‘shildi!');
+              }}
+              className="bg-white dark:bg-zinc-900 rounded-3xl max-w-md w-full p-6 border border-zinc-200 dark:border-zinc-800 space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">Yangi rasm qo‘shish</h2>
+                <button type="button" onClick={() => setNewPinModal(false)}><X className="w-5 h-5" /></button>
+              </div>
+              <input type="text" value={newPinTitle} onChange={(e) => setNewPinTitle(e.target.value)} placeholder="Rasm sarlavhasi" className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-950 text-sm" required />
+              <input type="url" value={newPinUrl} onChange={(e) => setNewPinUrl(e.target.value)} placeholder="Rasm URL manzili (https://...)" className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-950 text-sm" required />
+              <select value={newPinCat} onChange={(e) => setNewPinCat(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F5F7] dark:bg-zinc-950 text-sm">
+                <option>Texnologiya</option>
+                <option>Dizayn</option>
+                <option>Sayohat</option>
+                <option>Arxitektura</option>
+                <option>Koinot</option>
+              </select>
+              <button type="submit" className="w-full py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-semibold">Saqlash</button>
+            </form>
+          </div>
+        )}
+
+        {/* COMPUTER DETAIL MODAL */}
+        {selectedComputer && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-2xl w-full p-6 border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">{selectedComputer.brand} {selectedComputer.model}</h2>
+                <button onClick={() => setSelectedComputer(null)}><X className="w-5 h-5" /></button>
+              </div>
+              <img src={selectedComputer.image} alt={selectedComputer.model} className="w-full h-56 object-cover rounded-2xl" />
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">{selectedComputer.description}</p>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Protsessor:</b> {selectedComputer.processor}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>RAM / Xotira:</b> {selectedComputer.ram} / {selectedComputer.storage}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Video karta:</b> {selectedComputer.gpu}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Batareya:</b> {selectedComputer.battery}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400">
+                  <b>Afzalliklari:</b>
+                  <ul className="mt-1 list-disc list-inside">{selectedComputer.pros.map((p) => <li key={p}>{p}</li>)}</ul>
+                </div>
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400">
+                  <b>Kamchiliklari:</b>
+                  <ul className="mt-1 list-disc list-inside">{selectedComputer.cons.map((c) => <li key={c}>{c}</li>)}</ul>
+                </div>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="hidden md:flex items-center gap-2">
-            <button onClick={() => setMuted((m) => !m)} className="p-1.5">
-              {muted ? <VolumeX className="w-4 h-4 text-rose-500" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={muted ? 0 : volume}
-              onChange={(e) => {
-                setMuted(false);
-                setVolume(Number(e.target.value));
-              }}
-              className="w-20 h-1 accent-blue-600 cursor-pointer"
-            />
+        {/* PHONE DETAIL MODAL */}
+        {selectedPhone && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-xl w-full p-6 border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">{selectedPhone.brand} {selectedPhone.model}</h2>
+                <button onClick={() => setSelectedPhone(null)}><X className="w-5 h-5" /></button>
+              </div>
+              <img src={selectedPhone.image} alt={selectedPhone.model} className="w-full h-56 object-cover rounded-2xl" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Chiqarilgan sana:</b> {selectedPhone.releaseDate}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Narxi:</b> {selectedPhone.price}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Ekran:</b> {selectedPhone.display}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Protsessor:</b> {selectedPhone.processor}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Xotira:</b> {selectedPhone.ramStorage}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>OS:</b> {selectedPhone.os}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950 sm:col-span-2"><b>Asosiy kamera:</b> {selectedPhone.mainCamera}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Old kamera:</b> {selectedPhone.frontCamera}</div>
+                <div className="p-3 rounded-xl bg-[#F8F9FA] dark:bg-zinc-950"><b>Batareya:</b> {selectedPhone.battery} ({selectedPhone.charging})</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </footer>
+        )}
+      </div>
     </div>
   );
 }
