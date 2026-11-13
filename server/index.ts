@@ -14,21 +14,39 @@ app.use(express.json({ limit: '5mb' }));
 const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
 const ai = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : null;
 
-async function getWorkingModel(): Promise<string> {
-  if (!ai) throw new Error('Serverda GEMINI_API_KEY sozlanmagan (Railway Variables bo‘limini tekshiring)');
+async function getCandidateModels(): Promise<string[]> {
+  if (!ai) {
+    throw new Error('Serverda GEMINI_API_KEY sozlanmagan (Railway Variables bo‘limini tekshiring)');
+  }
+
   const pager = await ai.models.list();
   const available: string[] = [];
+
   for await (const m of pager) {
     const name = (m.name || '').replace(/^models\//, '');
-    if (name.includes('gemini') && !name.includes('embedding') && !name.includes('imagen')) {
+    if (
+      name.includes('gemini') &&
+      !name.includes('embedding') &&
+      !name.includes('imagen') &&
+      !name.includes('2.5') &&
+      !name.includes('2.0')
+    ) {
       available.push(name);
     }
   }
-  const preferred = available.find((n) => n.includes('flash')) || available[0];
-  if (!preferred) {
-    throw new Error('Bu API kalit uchun mos Gemini modeli topilmadi.');
+
+  // Avval gemini-3.8-flash, keyin boshqa yangi flash modellar, oxirida qolganlari
+  const sorted = [
+    ...available.filter((n) => n.includes('3.8-flash')),
+    ...available.filter((n) => n.includes('flash') && !n.includes('3.8-flash')),
+    ...available.filter((n) => !n.includes('flash')),
+  ];
+
+  if (!sorted.includes('gemini-3.8-flash')) {
+    sorted.unshift('gemini-3.8-flash');
   }
-  return preferred;
+
+  return Array.from(new Set(sorted));
 }
 
 async function handleChatRequest(req: express.Request, res: express.Response) {
@@ -39,7 +57,7 @@ async function handleChatRequest(req: express.Request, res: express.Response) {
     }
     if (!ai) {
       return res.status(503).json({
-        error: 'AI xizmati hozircha ulanmagan: Railway Variables bo‘limida GEMINI_API_KEY ko‘rsatilmagan.',
+        error: 'AI xizmati ulanmagan: Railway Variables bo‘limida GEMINI_API_KEY ko‘rsatilmagan.',
       });
     }
 
@@ -55,21 +73,35 @@ async function handleChatRequest(req: express.Request, res: express.Response) {
       { role: 'user', parts: [{ text: message.trim() }] },
     ];
 
-    const modelName = await getWorkingModel();
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents,
-      config: {
-        systemInstruction:
-          'Sen "VerMix — Shaxsiy Raqamli Ekotizim" platformasining aqlli AI yordamchisisan. Foydalanuvchiga o‘zbek tilida qisqa, aniq, do‘stona va foydali javob ber.',
-      },
-    });
+    const candidates = await getCandidateModels();
+    let lastError: any = null;
 
-    res.json({ reply: response.text || 'Javob shakllantirilmadi.', model: modelName });
+    for (const modelName of candidates) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: {
+            systemInstruction:
+              'Sen "VerMix — Shaxsiy Raqamli Ekotizim" platformasining aqlli AI yordamchisisan. Foydalanuvchiga o‘zbek tilida qisqa, aniq, do‘stona va foydali javob ber.',
+          },
+        });
+        return res.json({ reply: response.text || 'Javob shakllantirilmadi.', model: modelName });
+      } catch (err: any) {
+        lastError = err;
+        // Agar model eskirgan yoki topilmasa (404), ro'yxatdagi keyingi modelga o'tadi
+        if (err?.status === 404 || String(err?.message || '').includes('404')) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw lastError || new Error('Ishlaydigan Gemini modeli topilmadi.');
   } catch (err: any) {
     console.error('Gemini API xatosi:', err);
     res.status(500).json({
-      error: err?.message || 'AI serveri bilan bog‘lanishda kutilmagan xatolik yuz berdi.',
+      error: err?.message || 'AI serveri bilan bog‘lanishda xatolik yuz berdi.',
     });
   }
 }
