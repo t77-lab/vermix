@@ -15,7 +15,7 @@ const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
 const ai = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : null;
 
 async function getWorkingModel(): Promise<string> {
-  if (!ai) throw new Error('GEMINI_API_KEY topilmadi');
+  if (!ai) throw new Error('Serverda GEMINI_API_KEY sozlanmagan (Railway Variables bo‘limini tekshiring)');
   const pager = await ai.models.list();
   const available: string[] = [];
   for await (const m of pager) {
@@ -24,27 +24,26 @@ async function getWorkingModel(): Promise<string> {
       available.push(name);
     }
   }
-  console.log('Kalit uchun mavjud Gemini modellar:', available);
   const preferred = available.find((n) => n.includes('flash')) || available[0];
   if (!preferred) {
-    throw new Error('Bu API kalitda birorta ham Gemini modeli topilmadi (aistudio.google.com dan yangi kalit oling)');
+    throw new Error('Bu API kalit uchun mos Gemini modeli topilmadi.');
   }
   return preferred;
 }
 
-app.post('/api/ai/chat', async (req, res) => {
+async function handleChatRequest(req: express.Request, res: express.Response) {
   try {
     const { message, history = [] } = req.body;
-    if (!message) {
-      return res.status(400).json({ error: 'Xabar bo‘sh bo‘lishi mumkin emas' });
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'Xabar matni bo‘sh bo‘lishi mumkin emas.' });
     }
     if (!ai) {
       return res.status(503).json({
-        error: 'Serverda GEMINI_API_KEY topilmadi. Railway Variables bo‘limini tekshiring.',
+        error: 'AI xizmati hozircha ulanmagan: Railway Variables bo‘limida GEMINI_API_KEY ko‘rsatilmagan.',
       });
     }
 
-    const mapped = history.slice(-8).map((m: { role: string; content: string }) => ({
+    const mapped = history.slice(-10).map((m: { role: string; content: string }) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }));
@@ -53,7 +52,7 @@ app.post('/api/ai/chat', async (req, res) => {
 
     const contents = [
       ...validHistory,
-      { role: 'user', parts: [{ text: message }] },
+      { role: 'user', parts: [{ text: message.trim() }] },
     ];
 
     const modelName = await getWorkingModel();
@@ -62,16 +61,21 @@ app.post('/api/ai/chat', async (req, res) => {
       contents,
       config: {
         systemInstruction:
-          'Sen VerMix platformasining aqlli AI yordamchisisan. Foydalanuvchiga o‘zbek tilida aniq, tushunarli va foydali javob ber.',
+          'Sen "VerMix — Shaxsiy Raqamli Ekotizim" platformasining aqlli AI yordamchisisan. Foydalanuvchiga o‘zbek tilida qisqa, aniq, do‘stona va foydali javob ber.',
       },
     });
 
-    res.json({ reply: response.text || 'Javob olinmadi.', model: modelName });
+    res.json({ reply: response.text || 'Javob shakllantirilmadi.', model: modelName });
   } catch (err: any) {
     console.error('Gemini API xatosi:', err);
-    res.status(500).json({ error: err?.message || 'AI server xatosi' });
+    res.status(500).json({
+      error: err?.message || 'AI serveri bilan bog‘lanishda kutilmagan xatolik yuz berdi.',
+    });
   }
-});
+}
+
+app.post('/api/chat', handleChatRequest);
+app.post('/api/ai/chat', handleChatRequest);
 
 const distPath = path.resolve(__dirname, '../dist');
 app.use(express.static(distPath));
@@ -82,5 +86,5 @@ app.use((_req, res) => {
 
 const PORT = Number(process.env.PORT) || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`VerMix full-stack server ${PORT}-portda ishga tushdi`);
+  console.log(`VerMix server http://localhost:${PORT} manzilida ishga tushdi`);
 });
