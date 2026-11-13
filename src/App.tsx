@@ -152,16 +152,35 @@ function SafeWebPImage({
   alt: string;
   className?: string;
 }) {
+  const dynamicPlaceholder =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#F8FAFC"/>
+            <stop offset="100%" stop-color="#E2E8F0"/>
+          </linearGradient>
+        </defs>
+        <rect width="800" height="500" fill="url(#g)"/>
+        <rect x="330" y="135" width="140" height="190" rx="22" fill="#0F172A"/>
+        <rect x="338" y="147" width="124" height="166" rx="14" fill="#1E293B"/>
+        <circle cx="400" cy="158" r="3" fill="#64748B"/>
+        <text x="400" y="375" font-family="sans-serif" font-size="22" font-weight="700" fill="#0F172A" text-anchor="middle">${alt.slice(0, 32)}</text>
+        <text x="400" y="405" font-family="sans-serif" font-size="13" font-weight="500" fill="#64748B" text-anchor="middle">VerMix Rasmiy Katalog</text>
+      </svg>`
+    );
+
   return (
     <img
-      src={src || FALLBACK_WEBP_PLACEHOLDER}
+      src={src || dynamicPlaceholder}
       alt={alt}
       loading="lazy"
       decoding="async"
       onError={(e) => {
         const target = e.currentTarget;
-        if (target.src !== FALLBACK_WEBP_PLACEHOLDER) {
-          target.src = FALLBACK_WEBP_PLACEHOLDER;
+        if (target.src !== dynamicPlaceholder) {
+          target.src = dynamicPlaceholder;
         }
       }}
       className={className}
