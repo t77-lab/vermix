@@ -35,7 +35,6 @@ async function getCandidateModels(): Promise<string[]> {
     }
   }
 
-  // Avval gemini-3.8-flash, keyin boshqa yangi flash modellar, oxirida qolganlari
   const sorted = [
     ...available.filter((n) => n.includes('3.8-flash')),
     ...available.filter((n) => n.includes('flash') && !n.includes('3.8-flash')),
@@ -89,15 +88,24 @@ async function handleChatRequest(req: express.Request, res: express.Response) {
         return res.json({ reply: response.text || 'Javob shakllantirilmadi.', model: modelName });
       } catch (err: any) {
         lastError = err;
-        // Agar model eskirgan yoki topilmasa (404), ro'yxatdagi keyingi modelga o'tadi
-        if (err?.status === 404 || String(err?.message || '').includes('404')) {
+        const msg = String(err?.message || '');
+        // 404 (topilmadi), 503 (server band) yoki 429 (limit) bo'lsa keyingi modelga o'tadi
+        if (
+          err?.status === 404 ||
+          err?.status === 503 ||
+          err?.status === 429 ||
+          msg.includes('404') ||
+          msg.includes('503') ||
+          msg.includes('UNAVAILABLE') ||
+          msg.includes('high demand')
+        ) {
           continue;
         }
         throw err;
       }
     }
 
-    throw lastError || new Error('Ishlaydigan Gemini modeli topilmadi.');
+    throw new Error('Hozircha AI serverlari biroz band. Iltimos, 5-10 soniyadan so‘ng qayta urinib ko‘ring.');
   } catch (err: any) {
     console.error('Gemini API xatosi:', err);
     res.status(500).json({
